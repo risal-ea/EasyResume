@@ -10,7 +10,7 @@ import { resumeFileBaseName } from "../render/format";
 import { renderMarkdown } from "../render/markdown";
 import { renderPdfToFit } from "../render/pdf";
 import { MAX_PAGES } from "../render/templates";
-import { normalizeDraft, type ResumeDraft, type ResumeDraftInput } from "../schema";
+import { normalizeDraft, type ResumeDraft, type ResumeDraftInput, type UserOverrides } from "../schema";
 import { loadProfile } from "../store/profileStore";
 import {
   getResume,
@@ -32,8 +32,11 @@ export async function createResume(input: ResumeDraftInput): Promise<ResumeRecor
   return renderAndSave(id, draft, null);
 }
 
+/** What the AI sends, or the web editor's edits, which may also reword anything from the profile. */
+type DraftChanges = Partial<ResumeDraftInput & UserOverrides>;
+
 /** Applies a partial draft. Lists given in `changes` replace the old ones entirely. */
-export async function updateResume(id: string, changes: Partial<ResumeDraftInput>): Promise<ResumeRecord> {
+export async function updateResume(id: string, changes: DraftChanges): Promise<ResumeRecord> {
   const existing = requireResume(id);
   return renderAndSave(id, mergeDraft(existing.draft, changes), existing);
 }
@@ -45,13 +48,13 @@ export interface ResumePreview {
 }
 
 /** Lays out a changed resume without saving anything, for the web editor's live preview. */
-export async function previewResume(id: string, changes: Partial<ResumeDraftInput>): Promise<ResumePreview> {
+export async function previewResume(id: string, changes: DraftChanges): Promise<ResumePreview> {
   const draft = mergeDraft(requireResume(id).draft, changes);
   const { document, warnings, pdf } = await layOut(draft);
   return { document, warnings, ats: checkAts(document, draft.keywords, pdf.pageCount) };
 }
 
-function mergeDraft(draft: ResumeDraft, changes: Partial<ResumeDraftInput>): ResumeDraft {
+function mergeDraft(draft: ResumeDraft, changes: DraftChanges): ResumeDraft {
   const defined = Object.fromEntries(Object.entries(changes).filter(([, v]) => v !== undefined));
   return normalizeDraft({ ...draft, ...defined });
 }

@@ -265,6 +265,45 @@ export const resumeDraftShape = {
 export const ResumeDraftInputSchema = z.object(resumeDraftShape);
 export type ResumeDraftInput = z.infer<typeof ResumeDraftInputSchema>;
 
+/**
+ * The user's own wording for what one profile item shows on one resume, set in
+ * the web UI's resume editor. A field left out shows the profile's text. The AI
+ * cannot send these, so its updates never overwrite them.
+ */
+export const ItemOverrideSchema = z
+  .object({
+    title: z.string(),
+    subtitle: z.string(),
+    /** A location or a URL. */
+    meta: z.string(),
+    dates: z.string(),
+    /** Education only: the grade line above the bullets. */
+    grade: z.string(),
+    /** One-line items (certifications, awards, publications, languages): the whole line. */
+    text: z.string(),
+  })
+  .partial();
+export type ItemOverride = z.infer<typeof ItemOverrideSchema>;
+/** Keyed by profile item id. */
+export type ItemOverrides = Record<string, ItemOverride>;
+
+/** The user's own name and contact details for one resume. A field left out shows the profile's. */
+export const HeaderOverrideSchema = z
+  .object({
+    name: z.string(),
+    email: z.string(),
+    phone: z.string(),
+    location: z.string(),
+    /** As shown on the resume, e.g. "github.com/jane". */
+    links: z.array(z.string()),
+  })
+  .partial();
+export type HeaderOverride = z.infer<typeof HeaderOverrideSchema>;
+
+/** Renamed section headings. A section left out keeps its standard heading. */
+export const SectionTitlesSchema = z.partialRecord(SectionKeySchema, z.string());
+export type SectionTitles = z.infer<typeof SectionTitlesSchema>;
+
 export interface ResumeDraft {
   targetTitle: string;
   company: string;
@@ -281,11 +320,17 @@ export interface ResumeDraft {
   volunteer: { profileId: string; bullets?: string[] }[];
   publications: { profileId: string }[];
   languages: { profileId: string }[];
+  header: HeaderOverride;
+  sectionTitles: SectionTitles;
+  overrides: ItemOverrides;
   sectionOrder: SectionKey[];
   template: TemplateId;
 }
 
-export function normalizeDraft(input: ResumeDraftInput): ResumeDraft {
+/** The parts of a draft only the user sets, in the web editor. The AI cannot send them, so its updates keep them. */
+export type UserOverrides = Pick<ResumeDraft, "header" | "sectionTitles" | "overrides">;
+
+export function normalizeDraft(input: ResumeDraftInput & Partial<UserOverrides>): ResumeDraft {
   return {
     targetTitle: input.targetTitle.trim(),
     company: input.company?.trim() ?? "",
@@ -302,6 +347,9 @@ export function normalizeDraft(input: ResumeDraftInput): ResumeDraft {
     volunteer: input.volunteer ?? [],
     publications: input.publications ?? [],
     languages: input.languages ?? [],
+    header: input.header ?? {},
+    sectionTitles: input.sectionTitles ?? {},
+    overrides: input.overrides ?? {},
     sectionOrder: input.sectionOrder ?? [],
     template: input.template ?? "classic",
   };
@@ -310,6 +358,8 @@ export function normalizeDraft(input: ResumeDraftInput): ResumeDraft {
 /**
  * The parts of a draft the user can change in the web UI's resume editor. The
  * target job (title, company, description, keywords) stays as the AI set it.
+ * Unlike the AI, the user may also reword the facts that come from the profile
+ * and rename section headings.
  */
 export const ResumeEditsSchema = ResumeDraftInputSchema.pick({
   headline: true,
@@ -329,6 +379,9 @@ export const ResumeEditsSchema = ResumeDraftInputSchema.pick({
   .extend({
     // A user may list skills without naming the group; the AI is asked to always name it.
     skills: z.array(z.object({ category: z.string(), items: z.array(z.string().min(1)).min(1) })),
+    header: HeaderOverrideSchema,
+    sectionTitles: SectionTitlesSchema,
+    overrides: z.record(z.string(), ItemOverrideSchema),
   })
   .partial();
 export type ResumeEdits = z.infer<typeof ResumeEditsSchema>;

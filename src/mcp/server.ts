@@ -77,7 +77,7 @@ export function createMcpServer(): McpServer {
     {
       title: "Update tailored resume",
       description:
-        "Changes a resume created earlier and re-renders all files. Send only the fields to change; a list you send (e.g. `experience` or `skills`) replaces the previous list completely. Re-reads the profile, so profile edits are picked up too.",
+        "Changes a resume created earlier and re-renders all files. Send only the fields to change; a list you send (e.g. `experience` or `skills`) replaces the previous list completely. Re-reads the profile, so profile edits are picked up too. What the user reworded for this resume in the web editor (the draft's `header`, `sectionTitles` and `overrides`) is kept.",
       inputSchema: { resumeId: z.string().describe("The resume id returned by create_resume or list_resumes."), ...updateShape },
       annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
     },

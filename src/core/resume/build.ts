@@ -1,5 +1,16 @@
 import { displayUrl, formatDateRange, formatMonth, joinNonEmpty } from "../render/format";
-import { SECTION_KEYS, type Profile, type ResumeDraft, type SectionKey } from "../schema";
+import {
+  SECTION_KEYS,
+  type Certification,
+  type Education,
+  type Experience,
+  type HeaderOverride,
+  type ItemOverride,
+  type Profile,
+  type Project,
+  type ResumeDraft,
+  type SectionKey,
+} from "../schema";
 import type { ResumeDocument, ResumeEntry, ResumeSection } from "./types";
 
 export const SECTION_TITLES: Record<SectionKey, string> = {
@@ -24,8 +35,9 @@ export interface BuildResult {
 }
 
 /**
- * Turns the AI's draft into a finished resume. Facts (employers, titles,
- * dates, schools, certificate names) always come from the profile; the draft
+ * Turns the AI's draft into a finished resume. Facts (name, contact details,
+ * employers, titles, dates, schools, certificate names) come from the profile
+ * unless the user reworded them in the web editor; the AI's part of the draft
  * only chooses which items to show and supplies the tailored wording.
  */
 export function buildResume(profile: Profile, draft: ResumeDraft): BuildResult {
@@ -34,7 +46,7 @@ export function buildResume(profile: Profile, draft: ResumeDraft): BuildResult {
 
   function pick<T extends { id: string }, R extends { profileId: string }>(kind: string, items: T[], refs: R[]) {
     const seen = new Set<string>();
-    const picked: { item: T; ref: R }[] = [];
+    const picked: { item: T; ref: R; edit: ItemOverride }[] = [];
     for (const ref of refs) {
       const item = items.find((i) => i.id === ref.profileId);
       if (!item) {
@@ -43,7 +55,7 @@ export function buildResume(profile: Profile, draft: ResumeDraft): BuildResult {
         warnings.push(`${kind} "${ref.profileId}" was listed twice; the duplicate was dropped.`);
       } else {
         seen.add(ref.profileId);
-        picked.push({ item, ref });
+        picked.push({ item, ref, edit: draft.overrides[ref.profileId] ?? {} });
       }
     }
     return picked;
@@ -65,8 +77,16 @@ export function buildResume(profile: Profile, draft: ResumeDraft): BuildResult {
   }
 
   const { basics } = profile;
-  if (!basics.name) warnings.push("The profile has no name. Ask the user to add it in the EasyResume web UI.");
-  if (!basics.email && !basics.phone) warnings.push("The profile has no email or phone number.");
+  const { header } = draft;
+  const fromProfile = profileHeader(profile);
+  const name = (header.name ?? fromProfile.name).trim();
+  const email = (header.email ?? fromProfile.email).trim();
+  const phone = (header.phone ?? fromProfile.phone).trim();
+  const contact = [email, phone, header.location ?? fromProfile.location, ...(header.links ?? fromProfile.links)]
+    .map((s) => s.trim())
+    .filter(Boolean);
+  if (!name) warnings.push("The resume has no name. Ask the user to add it to their profile in the EasyResume web UI.");
+  if (!email && !phone) warnings.push("The resume has no email or phone number.");
 
   const content: Partial<Record<SectionKey, Omit<ResumeSection, "key" | "title">>> = {};
   const section = (fields: Partial<Omit<ResumeSection, "key" | "title">>) => ({
@@ -88,14 +108,8 @@ export function buildResume(profile: Profile, draft: ResumeDraft): BuildResult {
 
   if (experience.length) {
     content.experience = section({
-      entries: experience.map(({ item, ref }) =>
-        entry({
-          title: item.title,
-          subtitle: item.company,
-          meta: item.location,
-          dates: formatDateRange(item.startDate, item.endDate, item.current),
-          bullets: ref.bullets ?? item.achievements,
-        }),
+      entries: experience.map(({ item, ref, edit }) =>
+        entry({ ...entryText.experience(item), bullets: ref.bullets ?? item.achievements }, edit),
       ),
     });
     if (!isReverseChronological(experience.map(({ item }) => item.current ? "9999-12" : item.endDate || item.startDate))) {
@@ -107,81 +121,55 @@ export function buildResume(profile: Profile, draft: ResumeDraft): BuildResult {
 
   if (projects.length) {
     content.projects = section({
-      entries: projects.map(({ item, ref }) =>
-        entry({
-          title: item.name,
-          subtitle: item.role,
-          meta: displayUrl(item.url),
-          dates: formatDateRange(item.startDate, item.endDate),
-          bullets: ref.bullets ?? item.highlights,
-        }),
-      ),
+      entries: projects.map(({ item, ref, edit }) => entry({ ...entryText.projects(item), bullets: ref.bullets ?? item.highlights }, edit)),
     });
   }
 
   if (education.length) {
     content.education = section({
-      entries: education.map(({ item, ref }) =>
-        entry({
-          title: degreeTitle(item.degree, item.field),
-          subtitle: item.institution,
-          meta: item.location,
-          dates: formatDateRange(item.startDate, item.endDate),
-          bullets: [...(item.grade ? [gradeLine(item.grade)] : []), ...(ref.bullets ?? item.achievements)],
-        }),
+      entries: education.map(({ item, ref, edit }) =>
+        entry(
+          { ...entryText.education(item), bullets: [edit.grade ?? gradeLine(item.grade), ...(ref.bullets ?? item.achievements)] },
+          edit,
+        ),
       ),
     });
   }
 
-  if (certifications.length) {
-    content.certifications = section({
-      lines: certifications.map(({ item }) => withDate(joinNonEmpty([item.name, item.issuer], ", "), item.date)),
-    });
-  }
+  // A line the user blanked out in the editor is left off.
+  const lines = <T>(picked: { item: T; edit: ItemOverride }[], text: (item: T) => string) =>
+    picked.map(({ item, edit }) => (edit.text ?? text(item)).trim()).filter(Boolean);
 
-  if (awards.length) {
-    content.awards = section({
-      lines: awards.map(({ item }) => withDate(joinNonEmpty([item.title, item.awarder], ", "), item.date)),
-    });
-  }
+  const certificationLines = lines(certifications, lineText.certifications);
+  if (certificationLines.length) content.certifications = section({ lines: certificationLines });
+
+  const awardLines = lines(awards, lineText.awards);
+  if (awardLines.length) content.awards = section({ lines: awardLines });
 
   if (volunteer.length) {
     content.volunteer = section({
-      entries: volunteer.map(({ item, ref }) =>
-        entry({
-          title: item.role,
-          subtitle: item.organization,
-          meta: "",
-          dates: formatDateRange(item.startDate, item.endDate, item.current),
-          bullets: ref.bullets ?? volunteerBullets(item),
-        }),
+      entries: volunteer.map(({ item, ref, edit }) =>
+        entry({ ...entryText.volunteer(item), bullets: ref.bullets ?? volunteerBullets(item) }, edit),
       ),
     });
   }
 
-  if (publications.length) {
-    content.publications = section({
-      lines: publications.map(({ item }) => withDate(joinNonEmpty([item.name, item.publisher], ", "), item.date)),
-    });
-  }
+  const publicationLines = lines(publications, lineText.publications);
+  if (publicationLines.length) content.publications = section({ lines: publicationLines });
 
-  if (languages.length) {
-    content.languages = section({
-      lines: [languages.map(({ item }) => (item.fluency ? `${item.language} (${item.fluency})` : item.language)).join(", ")],
-    });
-  }
+  const languageLines = lines(languages, lineText.languages);
+  if (languageLines.length) content.languages = section({ lines: [languageLines.join(", ")] });
 
   const order = [...new Set([...draft.sectionOrder, ...SECTION_KEYS])];
   const sections: ResumeSection[] = order
     .filter((key) => content[key])
-    .map((key) => ({ key, title: SECTION_TITLES[key], ...content[key]! }));
+    .map((key) => ({ key, title: draft.sectionTitles[key]?.trim() || SECTION_TITLES[key], ...content[key]! }));
 
-  const location = joinNonEmpty([basics.location.city, basics.location.region, basics.location.country], ", ");
   const document: ResumeDocument = {
-    name: basics.name,
+    name,
     // The headline matches the job being applied for, not the profile's general one.
     headline: (draft.headline || draft.targetTitle).trim(),
-    contact: [basics.email, basics.phone, location, ...basics.links.map((l) => displayUrl(l.url))].filter(Boolean),
+    contact,
     sections,
     pageSize: profile.settings.pageSize,
     template: draft.template,
@@ -190,6 +178,18 @@ export function buildResume(profile: Profile, draft: ResumeDraft): BuildResult {
   };
 
   return { document, warnings };
+}
+
+/** The name and contact details the profile gives a resume's header. */
+export function profileHeader(profile: Profile): Required<HeaderOverride> {
+  const { basics } = profile;
+  return {
+    name: basics.name,
+    email: basics.email,
+    phone: basics.phone,
+    location: joinNonEmpty([basics.location.city, basics.location.region, basics.location.country], ", "),
+    links: basics.links.map((l) => displayUrl(l.url)).filter(Boolean),
+  };
 }
 
 /** Draft fields that pick profile items by id. */
@@ -208,48 +208,87 @@ export interface ProfileItemOption {
   label: string;
   /** Dates, to tell similar items apart. */
   detail: string;
+  /** What the item shows on a resume until the user rewords it: an entry's fields, or a one-line item's `text`. */
+  defaults: ItemOverride;
   /** What the entry shows when the draft has no tailored bullets for it. */
   bullets: string[];
 }
 
 /** Every profile item a resume can include, labelled for the web UI's resume editor. */
 export function profileItemOptions(profile: Profile): Record<ProfileRefKey, ProfileItemOption[]> {
-  const option = (id: string, label: string, detail = "", bullets: string[] = []) => ({ id, label, detail, bullets });
+  const entryOption = (id: string, text: EntryText, bullets: string[], extra: ItemOverride = {}) => ({
+    id,
+    label: joinNonEmpty([text.title, text.subtitle], " — "),
+    detail: text.dates,
+    defaults: { ...text, ...extra },
+    bullets,
+  });
+  const lineOption = (id: string, label: string, detail: string, text: string) => ({ id, label, detail, defaults: { text }, bullets: [] });
   return {
-    experience: profile.experience.map((e) =>
-      option(e.id, joinNonEmpty([e.title, e.company], " — "), formatDateRange(e.startDate, e.endDate, e.current), e.achievements),
+    experience: profile.experience.map((e) => entryOption(e.id, entryText.experience(e), e.achievements)),
+    projects: profile.projects.map((p) => entryOption(p.id, entryText.projects(p), p.highlights)),
+    education: profile.education.map((e) => entryOption(e.id, entryText.education(e), e.achievements, { grade: gradeLine(e.grade) })),
+    volunteer: profile.volunteer.map((v) => entryOption(v.id, entryText.volunteer(v), volunteerBullets(v))),
+    certifications: profile.certifications.map((c) =>
+      lineOption(c.id, joinNonEmpty([c.name, c.issuer], ", "), formatMonth(c.date), lineText.certifications(c)),
     ),
-    projects: profile.projects.map((p) =>
-      option(p.id, joinNonEmpty([p.name, p.role], " — "), formatDateRange(p.startDate, p.endDate), p.highlights),
+    awards: profile.awards.map((a) => lineOption(a.id, joinNonEmpty([a.title, a.awarder], ", "), formatMonth(a.date), lineText.awards(a))),
+    publications: profile.publications.map((p) =>
+      lineOption(p.id, joinNonEmpty([p.name, p.publisher], ", "), formatMonth(p.date), lineText.publications(p)),
     ),
-    education: profile.education.map((e) =>
-      option(
-        e.id,
-        joinNonEmpty([degreeTitle(e.degree, e.field), e.institution], " — "),
-        formatDateRange(e.startDate, e.endDate),
-        e.achievements,
-      ),
-    ),
-    volunteer: profile.volunteer.map((v) =>
-      option(v.id, joinNonEmpty([v.role, v.organization], " — "), formatDateRange(v.startDate, v.endDate, v.current), volunteerBullets(v)),
-    ),
-    certifications: profile.certifications.map((c) => option(c.id, joinNonEmpty([c.name, c.issuer], ", "), formatMonth(c.date))),
-    awards: profile.awards.map((a) => option(a.id, joinNonEmpty([a.title, a.awarder], ", "), formatMonth(a.date))),
-    publications: profile.publications.map((p) => option(p.id, joinNonEmpty([p.name, p.publisher], ", "), formatMonth(p.date))),
-    languages: profile.languages.map((l) => option(l.id, l.fluency ? `${l.language} (${l.fluency})` : l.language)),
+    languages: profile.languages.map((l) => lineOption(l.id, lineText.languages(l), "", lineText.languages(l))),
   };
 }
+
+type EntryText = Omit<ResumeEntry, "bullets">;
+
+/** The text each kind of entry shows from the profile. */
+const entryText = {
+  experience: (e: Experience): EntryText => ({
+    title: e.title,
+    subtitle: e.company,
+    meta: e.location,
+    dates: formatDateRange(e.startDate, e.endDate, e.current),
+  }),
+  projects: (p: Project): EntryText => ({
+    title: p.name,
+    subtitle: p.role,
+    meta: displayUrl(p.url),
+    dates: formatDateRange(p.startDate, p.endDate),
+  }),
+  education: (e: Education): EntryText => ({
+    title: degreeTitle(e.degree, e.field),
+    subtitle: e.institution,
+    meta: e.location,
+    dates: formatDateRange(e.startDate, e.endDate),
+  }),
+  volunteer: (v: Profile["volunteer"][number]): EntryText => ({
+    title: v.role,
+    subtitle: v.organization,
+    meta: "",
+    dates: formatDateRange(v.startDate, v.endDate, v.current),
+  }),
+};
+
+/** The text each kind of one-line item shows from the profile. */
+const lineText = {
+  certifications: (c: Certification) => withDate(joinNonEmpty([c.name, c.issuer], ", "), c.date),
+  awards: (a: Profile["awards"][number]) => withDate(joinNonEmpty([a.title, a.awarder], ", "), a.date),
+  publications: (p: Profile["publications"][number]) => withDate(joinNonEmpty([p.name, p.publisher], ", "), p.date),
+  languages: (l: Profile["languages"][number]) => (l.fluency ? `${l.language} (${l.fluency})` : l.language),
+};
 
 function volunteerBullets(item: Profile["volunteer"][number]): string[] {
   return item.highlights.length ? item.highlights : item.summary ? [item.summary] : [];
 }
 
-function entry(e: ResumeEntry): ResumeEntry {
+/** The entry with the user's rewording from the web editor (`edit`) in place of the profile's text. */
+function entry(e: ResumeEntry, edit: ItemOverride): ResumeEntry {
   return {
-    title: e.title.trim(),
-    subtitle: e.subtitle.trim(),
-    meta: e.meta.trim(),
-    dates: e.dates,
+    title: (edit.title ?? e.title).trim(),
+    subtitle: (edit.subtitle ?? e.subtitle).trim(),
+    meta: (edit.meta ?? e.meta).trim(),
+    dates: (edit.dates ?? e.dates).trim(),
     bullets: e.bullets.map(stripBulletMarker).filter(Boolean),
   };
 }
@@ -265,6 +304,7 @@ function degreeTitle(degree: string, field: string): string {
 }
 
 function gradeLine(grade: string): string {
+  if (!grade) return "";
   return /gpa|cgpa|grade|%|class|hono|distinction|cum laude/i.test(grade) ? grade : `Grade: ${grade}`;
 }
 

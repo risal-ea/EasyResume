@@ -488,7 +488,25 @@ body:has(.editor-layout) .site-nav { max-width: 1368px; }
 .pages-over { background: var(--danger-soft); color: var(--danger); }
 
 .line-list { list-style: none; margin: 0 0 10px; padding: 0; }
-.line-list li { display: flex; align-items: center; gap: 8px; padding: 6px 0 6px 12px; border: 1px solid var(--border); border-radius: 10px; margin-bottom: 6px; }
+.line-list li { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.line-list li > input { flex: 1; min-width: 0; }
+.line-list li > .item-title { padding-left: 12px; }
+
+/* A section heading the user can rename: reads as a heading until hovered or focused. */
+.editor-layout input.heading-input {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  margin-left: -9px; /* line the text up with the card's content */
+  padding: 3px 8px;
+  font-size: 1.15rem;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  border-color: transparent;
+  background: transparent;
+}
+.editor-layout input.heading-input:hover,
+.editor-layout input.heading-input:focus { border-color: var(--border); background: var(--surface); }
 
 .add-from-profile { width: auto; max-width: 100%; }
 
