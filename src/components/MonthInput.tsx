@@ -6,7 +6,7 @@ const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "
 
 interface Props {
   label: string;
-  /** "YYYY-MM" or "". */
+  /** "YYYY-MM", "YYYY" (year only) or "". */
   value: string;
   onChange: (value: string) => void;
   disabled?: boolean;
@@ -18,18 +18,19 @@ interface Props {
  */
 export function MonthInput({ label, value, onChange, disabled }: Props) {
   const labelId = useId();
-  const parsed = /^(\d{4})-(\d{2})$/.exec(value);
-  // Holds a half-picked date (only month or only year) until both are chosen.
-  const [partial, setPartial] = useState({ year: "", month: "" });
-  const year = parsed ? parsed[1]! : partial.year;
-  const month = parsed ? parsed[2]! : partial.month;
+  const parsed = /^(\d{4})(?:-(\d{2}))?$/.exec(value);
+  // A month picked before any year is held here until a year is chosen.
+  const [pendingMonth, setPendingMonth] = useState("");
+  const year = parsed?.[1] ?? "";
+  const month = parsed ? (parsed[2] ?? "") : pendingMonth;
 
+  // A year alone is a valid date ("2019"); a month alone is not.
   const update = (next: { year: string; month: string }) => {
-    if (next.year && next.month) {
-      setPartial({ year: "", month: "" });
-      onChange(`${next.year}-${next.month}`);
+    if (next.year) {
+      setPendingMonth("");
+      onChange(next.month ? `${next.year}-${next.month}` : next.year);
     } else {
-      setPartial(next);
+      setPendingMonth(next.month);
       if (value) onChange("");
     }
   };

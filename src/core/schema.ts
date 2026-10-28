@@ -7,9 +7,10 @@ import { z } from "zod";
 
 const text = z.string().default("");
 const list = z.array(z.string()).default([]);
+// "YYYY-MM", or just "YYYY" when only the year is known.
 const month = z
   .string()
-  .regex(/^(\d{4}-(0[1-9]|1[0-2]))?$/, "Use YYYY-MM")
+  .regex(/^(\d{4}(-(0[1-9]|1[0-2]))?)?$/, "Use YYYY-MM or YYYY")
   .default("");
 const id = z
   .string()
@@ -148,6 +149,25 @@ export type PageSize = z.infer<typeof PageSizeSchema>;
 export function emptyProfile(): Profile {
   return ProfileSchema.parse({});
 }
+
+/**
+ * What the AI sends to import_profile after reading an uploaded resume: the
+ * profile without ids (the server assigns them) and without settings.
+ */
+export const ProfileImportSchema = z.object({
+  basics: BasicsSchema.prefault({}),
+  experience: z.array(ExperienceSchema.omit({ id: true })).default([]),
+  education: z.array(EducationSchema.omit({ id: true })).default([]),
+  skills: z.array(SkillGroupSchema.omit({ id: true })).default([]),
+  certifications: z.array(CertificationSchema.omit({ id: true })).default([]),
+  projects: z.array(ProjectSchema.omit({ id: true })).default([]),
+  awards: z.array(AwardSchema.omit({ id: true })).default([]),
+  languages: z.array(LanguageSchema.omit({ id: true })).default([]),
+  volunteer: z.array(VolunteerSchema.omit({ id: true })).default([]),
+  publications: z.array(PublicationSchema.omit({ id: true })).default([]),
+  notes: text,
+});
+export type ProfileImport = z.infer<typeof ProfileImportSchema>;
 
 // ---------------------------------------------------------------------------
 // Resume draft: what the AI sends to create_resume / update_resume.

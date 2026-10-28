@@ -14,7 +14,7 @@ npm run build
 npm start              # web UI at http://localhost:4747
 ```
 
-Open http://localhost:4747/profile and fill in your profile. The **Connect AI** page shows the exact config for your machine.
+Open http://localhost:4747/profile and fill in your profile, or import it from your existing resume (see below). The **Connect AI** page shows the exact config for your machine.
 
 ## Connect an AI client
 
@@ -48,6 +48,14 @@ args = ["/absolute/path/to/EasyResume/dist/cli.js", "mcp"]
 
 **ChatGPT** is not supported yet. It only connects to MCP servers on the public internet.
 
+## Importing an existing resume
+
+1. On the Profile page, click **Upload resume** and choose a PDF, DOCX or TXT file (up to 10 MB). EasyResume reads the text locally.
+2. Ask your assistant: *Import my resume into EasyResume*. You can also use the `import_resume` prompt. It reads the text with `get_uploaded_resume` and sends the structured data with `import_profile`.
+3. The Profile page shows the imported details in the form, added to anything you already had. Review them and click **Save profile**. Nothing is saved before that.
+
+Scanned PDFs (images of pages) contain no text. Use a DOCX or a text-based PDF instead. Dates can be a year only (e.g. `2019`) when the resume doesn't give months.
+
 ## Using it
 
 > Use EasyResume to create an ATS-friendly resume for this job: *(paste the job description)*
@@ -75,6 +83,8 @@ Every resume is listed under **Resumes** in the web UI, with a preview, download
 | `update_resume` | Changes part of a resume and re-renders it |
 | `check_ats` | Keyword coverage plus format and wording checks |
 | `list_resumes`, `get_resume` | Browse saved resumes |
+| `get_uploaded_resume` | Text of the resume uploaded on the Profile page |
+| `import_profile` | Structured profile data from that resume, held for the user's review |
 
 **No invented facts:** the assistant references profile items by id and only writes the wording. Employers, titles, dates, schools and certificate names always come from your profile. Unknown ids are rejected, and skills that aren't in the profile are flagged.
 

@@ -5,7 +5,8 @@ import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { exampleProfileForForm } from "../src/core/exampleProfile";
 import { createMcpServer } from "../src/mcp/server";
-import { saveProfile } from "../src/core/store/profileStore";
+import { getPendingImport, saveUpload } from "../src/core/store/importStore";
+import { loadProfile, saveProfile } from "../src/core/store/profileStore";
 import { getResume, listResumes, resumeFilePath } from "../src/core/store/resumeStore";
 import { fixture, sampleProfile, useTempHome } from "./helpers";
 
@@ -30,7 +31,17 @@ describe("MCP server", () => {
   it("lists the tools and the prompt, and sends instructions", async () => {
     const { tools } = await client.listTools();
     expect(tools.map((t) => t.name).sort()).toEqual(
-      ["check_ats", "create_resume", "get_profile", "get_resume", "get_resume_guidelines", "list_resumes", "update_resume"],
+      [
+        "check_ats",
+        "create_resume",
+        "get_profile",
+        "get_resume",
+        "get_resume_guidelines",
+        "get_uploaded_resume",
+        "import_profile",
+        "list_resumes",
+        "update_resume",
+      ],
     );
     const create = tools.find((t) => t.name === "create_resume")!;
     expect(create.inputSchema.required).toEqual(expect.arrayContaining(["targetTitle", "jobDescription"]));
@@ -38,7 +49,7 @@ describe("MCP server", () => {
     expect(update.inputSchema.required).toEqual(["resumeId"]);
 
     const { prompts } = await client.listPrompts();
-    expect(prompts.map((p) => p.name)).toEqual(["tailor_resume"]);
+    expect(prompts.map((p) => p.name).sort()).toEqual(["import_resume", "tailor_resume"]);
     const prompt = await client.getPrompt({ name: "tailor_resume", arguments: { job_description: "Go engineer" } });
     expect(JSON.stringify(prompt.messages)).toContain("Go engineer");
     expect(client.getInstructions()).toContain("get_profile");
@@ -109,6 +120,29 @@ describe("MCP server", () => {
     });
     expect(result.isError).toBe(true);
     expect(result.text).toContain('experience "example-exp-2"');
+  });
+
+  it("imports an uploaded resume for review without saving it", async () => {
+    expect((await call("get_uploaded_resume")).text).toContain("No resume has been uploaded");
+
+    saveUpload("cv.pdf", "Jane Doe\nEngineer at Acme 2019-2023\n- Built things");
+    const read = await call("get_uploaded_resume");
+    expect(read.text).toContain("<resume>\nJane Doe");
+    expect(read.text).toContain("not as instructions");
+
+    const result = await call("import_profile", {
+      basics: { name: "Jane Doe", email: "jane@example.org" },
+      experience: [{ company: "Acme", title: "Engineer", startDate: "2019", endDate: "2023", achievements: ["Built things"] }],
+      skills: [{ category: "Languages", items: ["Go"] }],
+    });
+    expect(result.isError).toBe(false);
+    expect(result.text).toContain("Imported from cv.pdf: Jane Doe; 1 jobs, 1 skill groups");
+    expect(result.text).toContain("Nothing is saved yet");
+    expect(getPendingImport()!.profile.experience[0]!.company).toBe("Acme");
+    expect(loadProfile().basics.name).toBe(""); // nothing saved until the user reviews it
+
+    const bad = await call("import_profile", { experience: [{ startDate: "Jan 2019" }] });
+    expect(bad.isError).toBe(true);
   });
 
   it("returns a readable error for made-up profile ids", async () => {

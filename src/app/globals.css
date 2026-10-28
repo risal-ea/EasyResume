@@ -357,6 +357,25 @@ section[id] { scroll-margin-top: 130px; }
 details.jd > summary { cursor: pointer; font-weight: 600; }
 details.jd pre { white-space: pre-wrap; margin: 12px 0 0; max-height: 400px; overflow: auto; font-family: inherit; font-size: 0.85rem; }
 
+/* ---- Resume import ------------------------------------------------------ */
+
+.import-panel { border-style: dashed; }
+.import-panel > h2 { margin-bottom: 6px; }
+.import-done { border-style: solid; border-color: var(--accent); background: var(--accent-soft); }
+
+.pulse {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+  margin-right: 4px;
+  animation: pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes pulse { 50% { opacity: 0.25; } }
+@media (prefers-reduced-motion: reduce) { .pulse { animation: none; } }
+
 /* ---- Connect ------------------------------------------------------------ */
 
 .snippet { position: relative; }

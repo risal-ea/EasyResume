@@ -1,7 +1,8 @@
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
-/** "2022-03" → "Mar 2022". Empty or malformed input gives "". */
+/** "2022-03" → "Mar 2022", "2022" → "2022". Empty or malformed input gives "". */
 export function formatMonth(value: string): string {
+  if (/^\d{4}$/.test(value)) return value;
   const match = /^(\d{4})-(\d{2})$/.exec(value);
   if (!match) return "";
   const month = MONTHS[Number(match[2]) - 1];

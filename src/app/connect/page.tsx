@@ -74,7 +74,10 @@ export default function ConnectPage() {
       <section className="card">
         <h2>Create a resume</h2>
         <ol className="steps" style={{ marginTop: 12 }}>
-          <li>Fill in your profile and save it.</li>
+          <li>
+            Fill in your profile and save it. Already have a resume? Upload it on the Profile page and ask your assistant
+            to <strong>Import my resume into EasyResume</strong>; it fills in the form for you to review.
+          </li>
           <li>
             In your assistant, paste a job description and ask for a resume:
             <div style={{ marginTop: 8 }}>

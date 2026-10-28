@@ -7,6 +7,8 @@ When the user asks for a resume for a job:
 3. Call create_resume with the chosen profile items (by id) and rewritten bullets.
 4. Read the ATS report in the result, fix gaps with update_resume, then give the user the download links.
 
+When the user wants to import an existing resume into their profile: call get_uploaded_resume (or use resume text they pasted into the chat), then import_profile. They review and save the result in the EasyResume web UI.
+
 Never invent employers, titles, dates, degrees, certifications, skills or metrics. If something important is missing from the profile, ask the user.`;
 
 /** Full rules, returned by get_resume_guidelines and the tailor_resume prompt. */
@@ -57,3 +59,5 @@ Create an ATS-friendly resume for the job below using EasyResume. Start by calli
 ${jobDescription}
 </job_description>`;
 }
+
+export const IMPORT_RESUME_PROMPT = `Import my existing resume into my EasyResume profile. Call get_uploaded_resume, then call import_profile with everything in it, copying the facts exactly as written. If no resume is uploaded, ask me to upload it on the Profile page or paste it here. When you're done, tell me to review and save it on the Profile page.`;

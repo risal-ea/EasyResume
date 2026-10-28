@@ -1,6 +1,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
+import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useTransition, type ComponentProps, type ReactNode } from "react";
 import { Controller, useFieldArray, useForm, useWatch, type Control, type FieldPath } from "react-hook-form";
 import { LinesInput } from "@/components/LinesInput";
@@ -26,7 +27,7 @@ import {
 import { resetToNewUserAction, saveProfileAction } from "./actions";
 
 type FormApi = ReturnType<typeof useForm<ProfileInput, unknown, Profile>>;
-type Status = { kind: "idle" | "saving" | "saved" | "error" | "cleared" | "reset"; message?: string };
+type Status = { kind: "idle" | "saving" | "saved" | "error" | "cleared" | "reset" | "imported"; message?: string };
 
 const SECTIONS = [
   ["basics", "Basics"],
@@ -43,7 +44,17 @@ const SECTIONS = [
   ["settings", "Settings"],
 ] as const;
 
-export function ProfileForm({ initial, dataFile, isNew }: { initial: Profile; dataFile: string; isNew: boolean }) {
+interface ProfileFormProps {
+  initial: Profile;
+  dataFile: string;
+  isNew: boolean;
+  /** Data imported from a resume, shown as unsaved changes for the user to review. */
+  imported: { fileName: string; profile: Profile } | null;
+  importPanel: ReactNode;
+}
+
+export function ProfileForm({ initial, dataFile, isNew, imported, importPanel }: ProfileFormProps) {
+  const router = useRouter();
   const form = useForm<ProfileInput, unknown, Profile>({
     resolver: zodResolver(ProfileSchema),
     defaultValues: initial,
@@ -53,15 +64,28 @@ export function ProfileForm({ initial, dataFile, isNew }: { initial: Profile; da
   const [everSaved, setEverSaved] = useState(!isNew);
   const [resetting, startReset] = useTransition();
 
+  // Show imported data as unsaved edits on top of the saved profile, so Save applies it.
+  // Once per mount: a new import remounts the form (see the key in page.tsx), and
+  // re-applying on a re-render would wipe the user's review edits.
+  const importApplied = useRef(false);
+  useEffect(() => {
+    if (!imported || importApplied.current) return;
+    importApplied.current = true;
+    form.reset(imported.profile, { keepDefaultValues: true });
+    setStatus({ kind: "imported" });
+  }, [imported, form]);
+
   const save = form.handleSubmit(
     async (values) => {
       setStatus({ kind: "saving" });
-      const result = await saveProfileAction(values);
+      const result = await saveProfileAction(values, { clearImport: imported !== null });
       if (result.ok) {
         // Mark the submitted values as saved without re-mounting the cards being edited.
         form.reset(values, { keepValues: true });
         setEverSaved(true);
         setStatus({ kind: "saved", message: `Saved at ${new Date().toLocaleTimeString()}` });
+        // The import is finished: reload the page so the import panel resets.
+        if (imported) router.refresh();
       } else {
         setStatus({ kind: "error", message: result.error });
       }
@@ -87,6 +111,7 @@ export function ProfileForm({ initial, dataFile, isNew }: { initial: Profile; da
     if (!ok) return;
     startReset(async () => {
       await resetToNewUserAction();
+      router.refresh();
       form.reset(exampleProfileForForm());
       setEverSaved(false);
       setStatus({ kind: "reset", message: "Your profile was deleted. This is the example a new user sees." });
@@ -121,7 +146,9 @@ export function ProfileForm({ initial, dataFile, isNew }: { initial: Profile; da
         : isDirty
           ? status.kind === "cleared"
             ? "Form cleared. Save to keep it, or reload the page to undo."
-            : "Unsaved changes"
+            : status.kind === "imported"
+              ? `Filled in from ${imported?.fileName} by your AI assistant. Review it, then click Save profile.`
+              : "Unsaved changes"
           : status.kind === "reset"
             ? status.message
             : !everSaved
@@ -159,6 +186,7 @@ export function ProfileForm({ initial, dataFile, isNew }: { initial: Profile; da
         </div>
       </div>
 
+      {importPanel}
       <ExampleNotice control={form.control} />
 
       <div className="profile-layout">
