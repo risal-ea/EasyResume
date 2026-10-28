@@ -1,6 +1,10 @@
-# EasyResume
+<p align="center">
+  <img src="src/app/icon.svg" width="96" height="96" alt="EasyResume logo">
+</p>
 
-A local MCP server and web UI for ATS-friendly resumes. Enter your career details once in the web UI. Then, in Claude or Codex, paste a job description and ask for a resume. The assistant reads your profile over MCP and writes tailored content, and EasyResume renders it to PDF, DOCX and Markdown with an ATS keyword report. Before downloading, you can edit the resume and choose a template in the web UI.
+<h1 align="center">EasyResume</h1>
+
+A local MCP server and web UI for ATS-friendly resumes. Enter your career details once in the web UI. Then, in Claude, Codex or Antigravity (Gemini), paste a job description and ask for a resume. The assistant reads your profile over MCP and writes tailored content, and EasyResume renders it to PDF, DOCX and Markdown with an ATS keyword report. Before downloading, you can edit the resume and choose a template in the web UI.
 
 Everything stays on your computer in `~/.easyresume`.
 
@@ -47,6 +51,18 @@ Use absolute paths, because Claude Desktop does not use your shell's `PATH`.
 command = "/absolute/path/to/node"
 args = ["/absolute/path/to/EasyResume/dist/cli.js", "mcp"]
 ```
+
+**Antigravity (Gemini)**: in the agent panel, open **… → MCP Servers → Manage MCP Servers → View raw config** (`~/.gemini/config/mcp_config.json`) and add:
+
+```json
+{
+  "mcpServers": {
+    "easyresume": { "command": "/absolute/path/to/node", "args": ["/absolute/path/to/EasyResume/dist/cli.js", "mcp"] }
+  }
+}
+```
+
+If EasyResume doesn't appear under Manage MCP Servers after you save, restart Antigravity.
 
 **ChatGPT** is not supported yet. It only connects to MCP servers on the public internet.
 

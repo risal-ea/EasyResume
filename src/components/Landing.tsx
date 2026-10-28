@@ -54,8 +54,8 @@ export function Landing({ hosted }: { hosted: boolean }) {
           </p>
           <Snippet text={CLAUDE_CODE} />
           <p>
-            For Claude Desktop or Codex, open <a href={`${appUrl}/connect`}>Connect AI</a> in the web UI. It shows the
-            exact config for your computer. From then on, your assistant starts EasyResume when it needs it. ChatGPT is
+            For Claude Desktop, Codex or Antigravity (Gemini), open <a href={`${appUrl}/connect`}>Connect AI</a> in the
+            web UI. It shows the exact config for your computer. From then on, your assistant starts EasyResume when it needs it. ChatGPT is
             not supported yet, because it only connects to MCP servers on the public internet.
           </p>
         </>
@@ -163,7 +163,7 @@ export function Landing({ hosted }: { hosted: boolean }) {
           <div className="lp-meta">
             <span>
               <Sparkle size={16} color="#e8763a" />
-              Works with <strong>Claude</strong> and <strong>Codex</strong>
+              Works with <strong>Claude</strong>, <strong>Codex</strong> and <strong>Gemini</strong>
             </span>
             <span>
               <Icon name="laptop" size={16} />
@@ -175,7 +175,7 @@ export function Landing({ hosted }: { hosted: boolean }) {
             Tailor your resume <span>for every job</span>
           </h1>
           <p className="lp-lead">
-            Paste a job description into Claude or Codex. EasyResume turns your career profile into an ATS-friendly
+            Paste a job description into Claude, Codex or Gemini. EasyResume turns your career profile into an ATS-friendly
             resume, checks the keywords, and hands you a PDF, DOCX or Markdown file.
           </p>
 
@@ -246,6 +246,7 @@ export function Landing({ hosted }: { hosted: boolean }) {
           <li>Claude Desktop</li>
           <li>Claude Code</li>
           <li>Codex</li>
+          <li>Antigravity</li>
           <li className="lp-strip-divider" aria-hidden="true" />
           <li>PDF</li>
           <li>DOCX</li>
