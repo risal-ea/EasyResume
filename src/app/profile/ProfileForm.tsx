@@ -4,6 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useTransition, type ComponentProps, type ReactNode } from "react";
 import { Controller, useFieldArray, useForm, useWatch, type Control, type FieldPath } from "react-hook-form";
+import { ItemCard } from "@/components/ItemCard";
 import { LinesInput } from "@/components/LinesInput";
 import { MonthInput } from "@/components/MonthInput";
 import { TagInput } from "@/components/TagInput";
@@ -684,53 +685,6 @@ function ListSection({
         + {addLabel}
       </button>
     </section>
-  );
-}
-
-function ItemCard({
-  defaultOpen,
-  title,
-  subtitle,
-  onUp,
-  onDown,
-  onRemove,
-  children,
-}: {
-  defaultOpen: boolean;
-  title?: string;
-  subtitle?: string;
-  onUp?: () => void;
-  onDown?: () => void;
-  onRemove: () => void;
-  children: ReactNode;
-}) {
-  const [open, setOpen] = useState(defaultOpen);
-  // Buttons live inside <summary>; stop them from toggling the card.
-  const action = (fn: () => void) => (e: React.MouseEvent) => {
-    e.preventDefault();
-    fn();
-  };
-  return (
-    <details className="item" open={open} onToggle={(e) => setOpen(e.currentTarget.open)}>
-      <summary>
-        <span className="item-title">
-          {title || "Untitled"}
-          {subtitle && <span className="muted"> · {subtitle}</span>}
-        </span>
-        <span className="item-actions">
-          <button type="button" className="btn btn-ghost btn-small" aria-label="Move up" disabled={!onUp} onClick={action(() => onUp?.())}>
-            ↑
-          </button>
-          <button type="button" className="btn btn-ghost btn-small" aria-label="Move down" disabled={!onDown} onClick={action(() => onDown?.())}>
-            ↓
-          </button>
-          <button type="button" className="btn btn-ghost btn-small btn-danger" onClick={action(onRemove)}>
-            Remove
-          </button>
-        </span>
-      </summary>
-      <div className="item-body">{children}</div>
-    </details>
   );
 }
 

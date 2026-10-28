@@ -343,6 +343,7 @@ section[id] { scroll-margin-top: 130px; }
 @media (max-width: 900px) { .detail-layout { grid-template-columns: 1fr; } }
 
 .preview-frame {
+  display: block;
   width: 100%;
   height: 1100px;
   border: 1px solid var(--border);
@@ -355,6 +356,77 @@ section[id] { scroll-margin-top: 130px; }
 .issue-error { color: var(--danger); }
 
 details.jd > summary { cursor: pointer; font-weight: 600; }
+
+/* ---- Resume templates and editor --------------------------------------- */
+
+.template-picker { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; }
+
+.template-option {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  cursor: pointer;
+}
+
+.template-option:hover { border-color: var(--accent); }
+.template-option:has(input:checked) { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); background: var(--accent-soft); }
+.template-option:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: 1px; }
+.template-option:has(input:disabled) { cursor: default; opacity: 0.7; }
+.template-option input { position: absolute; opacity: 0; pointer-events: none; }
+.template-option .muted { font-size: 0.78rem; line-height: 1.35; }
+
+/* A miniature page; the bars stand for lines of text. */
+.thumb {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  height: 66px;
+  padding: 8px 10px;
+  margin-bottom: 6px;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.thumb .bar { display: block; flex: none; height: 2px; border-radius: 1px; background: #c9c9c9; }
+.thumb-row { display: flex; justify-content: space-between; }
+
+.page:has(.editor-layout) { max-width: 1400px; }
+
+.editor-layout { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); gap: 20px; align-items: start; }
+
+.editor-preview {
+  position: sticky;
+  top: 128px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  height: calc(100vh - 144px);
+}
+.editor-preview .preview-frame { flex: 1; height: auto; min-height: 0; }
+
+@media (max-width: 900px) {
+  .editor-layout { grid-template-columns: minmax(0, 1fr); }
+  .editor-preview { position: static; height: 85vh; }
+}
+
+.pages { font-weight: 600; font-size: 0.85rem; padding: 6px 10px; border-radius: 8px; background: var(--ok-soft); color: var(--ok); }
+.pages-over { background: var(--danger-soft); color: var(--danger); }
+
+.line-list { list-style: none; margin: 0 0 10px; padding: 0; }
+.line-list li { display: flex; align-items: center; gap: 8px; padding: 6px 0 6px 12px; border: 1px solid var(--border); border-radius: 8px; margin-bottom: 6px; }
+
+.add-from-profile { width: auto; max-width: 100%; }
+
+/* Bullets wrap; let each box grow to show all of them where the browser supports it. */
+.editor-layout textarea { field-sizing: content; }
+
+.skill-group { display: flex; flex-direction: column; gap: 8px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; margin-bottom: 10px; }
 details.jd pre { white-space: pre-wrap; margin: 12px 0 0; max-height: 400px; overflow: auto; font-family: inherit; font-size: 0.85rem; }
 
 /* ---- Resume import ------------------------------------------------------ */

@@ -1,4 +1,4 @@
-import type { PageSize, ResumeDraft, SectionKey } from "../schema";
+import type { PageSize, ResumeDraft, SectionKey, TemplateId } from "../schema";
 
 /** One dated item in a section, e.g. a job, a degree or a project. */
 export interface ResumeEntry {
@@ -27,6 +27,9 @@ export interface ResumeDocument {
   contact: string[];
   sections: ResumeSection[];
   pageSize: PageSize;
+  template: TemplateId;
+  /** How far the layout was tightened to fit the page limit: 0 is the template as designed. */
+  fitLevel: number;
 }
 
 export interface AtsIssue {

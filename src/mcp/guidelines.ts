@@ -5,7 +5,7 @@ When the user asks for a resume for a job:
 1. Call get_resume_guidelines once (the full rules), then get_profile.
 2. Extract 15-30 keywords from the job description.
 3. Call create_resume with the chosen profile items (by id) and rewritten bullets.
-4. Read the ATS report in the result, fix gaps with update_resume, then give the user the download links.
+4. Read the ATS report in the result, fix gaps with update_resume, then give the user the web link, where they can edit the resume, pick a template and download it.
 
 When the user wants to import an existing resume into their profile: call get_uploaded_resume (or use resume text they pasted into the chat), then import_profile. They review and save the result in the EasyResume web UI.
 
@@ -17,13 +17,13 @@ export const RESUME_GUIDELINES = `# EasyResume: how to tailor an ATS-friendly re
 ## Workflow
 1. **Read the profile** with \`get_profile\`. Every item has an \`id\`; you will reference items by id. The \`notes\` field holds extra context from the user.
 2. **Analyse the job description.** Identify the target title, seniority, must-have skills, nice-to-have skills, tools, certifications, domain terms and soft skills. Pick 15-30 **keywords** using the exact wording the job description uses (e.g. "CI/CD", "Kubernetes", "stakeholder management").
-3. **Choose content.** Select the experience, projects, education and certifications that best support this job. Keep all recent and relevant jobs; older or unrelated roles can be shortened or dropped. Aim for 1 page (under ~8 years of experience) or 2 pages maximum.
+3. **Choose content.** Select the experience, projects, education and certifications that best support this job. Keep all recent and relevant jobs; older or unrelated roles can be shortened or dropped. Aim for 1 page (under ~8 years of experience). **2 pages is a hard limit**: the server tightens the spacing when that makes the resume fit, and rejects a resume that is still longer, so cut content and call again.
 4. **Write the content** (rules below) and call \`create_resume\`. Pass the keywords so the ATS check can score coverage.
 5. **Review the ATS report** returned by the tool: keyword coverage, missing keywords, issues and warnings.
    - For each missing keyword: if the profile shows the user has that skill or experience, work it in naturally (summary, a bullet or the skills section) with \`update_resume\`.
    - If the profile does **not** show it, do not add it. Tell the user it is missing and ask whether they have that experience.
    - Fix the listed issues (weak openers, long bullets, missing metrics, length).
-6. **Report back**: the web link and file paths, the final keyword coverage, keywords you could not honestly cover, and questions that would let you strengthen the resume (e.g. "Do you have a number for how much the migration saved?").
+6. **Report back**: the web link (where the user can edit the wording, switch templates and download) and file paths, the final keyword coverage, keywords you could not honestly cover, and questions that would let you strengthen the resume (e.g. "Do you have a number for how much the migration saved?").
 
 ## Truthfulness (most important)
 - Never invent employers, job titles, dates, degrees, schools, certifications, skills, tools, metrics or achievements. The server fills in employers, titles, dates, schools and certificate names from the profile; you only supply ids and wording.
@@ -46,7 +46,9 @@ export const RESUME_GUIDELINES = `# EasyResume: how to tailor an ATS-friendly re
 - Spell out an acronym once if the JD does ("Amazon Web Services (AWS)").
 
 ## Formatting (handled by the server)
-The server renders a single-column layout with standard section headings, real text (no tables, images, icons or text boxes), contact details in the body and consistent dates. Do not add markdown, emojis or bullet characters to the text you send.`;
+The server renders a single-column layout with standard section headings, real text (no tables, images, icons or text boxes), contact details in the body and consistent dates. Do not add markdown, emojis or bullet characters to the text you send.
+
+There are several templates, all ATS-safe: classic (the default), modern, traditional and compact. Set \`template\` only when the user asks for a particular look; they can also switch templates themselves in the web UI. The user may edit a resume in the web UI too: \`get_resume\` always returns the current version, so read it before an \`update_resume\` that changes wording.`;
 
 export function tailorResumePrompt(jobDescription: string): string {
   return `${RESUME_GUIDELINES}

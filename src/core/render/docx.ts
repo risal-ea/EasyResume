@@ -6,28 +6,52 @@ import {
   LevelFormat,
   Packer,
   Paragraph,
+  Tab,
+  TabStopType,
   TextRun,
 } from "docx";
 import type { ResumeDocument } from "../resume/types";
 import { joinNonEmpty } from "./format";
 import { splitLabel } from "./markdown";
+import { resumeStyle } from "./templates";
 
-// Arial ships with every OS (Calibri only comes with Office) and matches the PDF.
-const FONT = "Arial";
 // Page sizes in twips (1/1440 inch).
 const PAGE = {
   A4: { width: 11906, height: 16838 },
   Letter: { width: 12240, height: 15840 },
 };
 
+const halfPoints = (pt: number) => Math.round(pt * 2);
+const twips = (pt: number) => Math.round(pt * 20);
+const hex = (color: string) => color.replace("#", "");
+
 /** Word document using real Title/Heading 1/list styles so ATS parsers can find the sections. */
 export async function renderDocx(doc: ResumeDocument, info: { title: string; subject?: string }): Promise<Buffer> {
+  const style = resumeStyle(doc);
+  const { size } = style;
+  // Arial and Times New Roman ship with every OS (Calibri only comes with Office) and match the PDF fonts.
+  const font = style.serif ? "Times New Roman" : "Arial";
+  const page = PAGE[doc.pageSize];
+  const margin = { x: twips(style.margin.x), y: twips(style.margin.y) };
+  const headerAlign = style.centerHeader ? AlignmentType.CENTER : AlignmentType.LEFT;
+  // Right-aligned dates use a tab stop at the right margin: no tables, which ATS parsers can scramble.
+  const rightTab = [{ type: TabStopType.RIGHT, position: page.width - 2 * margin.x }];
+
   const children: Paragraph[] = [
-    new Paragraph({ heading: HeadingLevel.TITLE, children: [new TextRun(doc.name || "Resume")] }),
+    new Paragraph({ heading: HeadingLevel.TITLE, alignment: headerAlign, children: [new TextRun(doc.name || "Resume")] }),
   ];
-  if (doc.headline) children.push(new Paragraph({ children: [new TextRun({ text: doc.headline, size: 22 })] }));
+  if (doc.headline) {
+    children.push(
+      new Paragraph({ alignment: headerAlign, children: [new TextRun({ text: doc.headline, size: halfPoints(size.headline) })] }),
+    );
+  }
   if (doc.contact.length) {
-    children.push(new Paragraph({ children: [new TextRun({ text: doc.contact.join("  |  "), size: 19 })] }));
+    children.push(
+      new Paragraph({
+        alignment: headerAlign,
+        children: [new TextRun({ text: doc.contact.join("  |  "), size: halfPoints(size.contact) })],
+      }),
+    );
   }
 
   for (const section of doc.sections) {
@@ -36,20 +60,26 @@ export async function renderDocx(doc: ResumeDocument, info: { title: string; sub
       children.push(new Paragraph({ children: [new TextRun(section.paragraph)], spacing: { after: 60 } }));
     }
     section.entries.forEach((e, i) => {
+      const dates = style.datesRight ? e.dates : "";
       children.push(
         new Paragraph({
           keepNext: true,
-          spacing: { before: i > 0 ? 140 : 0 },
+          spacing: { before: i > 0 ? twips(style.entryGap + 1.5) : 0 },
+          tabStops: dates ? rightTab : undefined,
           children: [
-            new TextRun({ text: e.title, bold: true }),
-            ...(e.subtitle ? [new TextRun({ text: ` — ${e.subtitle}` })] : []),
+            new TextRun({ text: e.title, bold: true, size: halfPoints(size.title) }),
+            ...(e.subtitle ? [new TextRun({ text: ` — ${e.subtitle}`, size: halfPoints(size.title) })] : []),
+            ...(dates ? [new TextRun({ children: [new Tab(), dates], size: halfPoints(size.meta), color: "444444" })] : []),
           ],
         }),
       );
-      const meta = joinNonEmpty([e.dates, e.meta], "  |  ");
+      const meta = style.datesRight ? e.meta : joinNonEmpty([e.dates, e.meta], "  |  ");
       if (meta) {
         children.push(
-          new Paragraph({ keepNext: e.bullets.length > 0, children: [new TextRun({ text: meta, size: 19, color: "444444" })] }),
+          new Paragraph({
+            keepNext: e.bullets.length > 0,
+            children: [new TextRun({ text: meta, size: halfPoints(size.meta), color: "444444" })],
+          }),
         );
       }
       for (const bullet of e.bullets) {
@@ -73,14 +103,19 @@ export async function renderDocx(doc: ResumeDocument, info: { title: string; sub
     subject: info.subject,
     styles: {
       default: {
-        document: { run: { font: FONT, size: 21 }, paragraph: { spacing: { after: 20, line: 264 } } },
-        title: { run: { font: FONT, size: 40, bold: true, color: "111111" }, paragraph: { spacing: { after: 40 } } },
+        document: { run: { font, size: halfPoints(size.body) }, paragraph: { spacing: { after: 20, line: 264 } } },
+        title: {
+          run: { font, size: halfPoints(size.name), bold: true, color: hex(style.accent) },
+          paragraph: { spacing: { after: 40 } },
+        },
         heading1: {
-          run: { font: FONT, size: 23, bold: true, allCaps: true, color: "111111" },
+          run: { font, size: halfPoints(size.heading), bold: true, allCaps: true, color: hex(style.accent) },
           paragraph: {
             keepNext: true,
-            spacing: { before: 240, after: 100 },
-            border: { bottom: { style: BorderStyle.SINGLE, size: 6, color: "999999", space: 1 } },
+            spacing: { before: twips(style.sectionGap + 3), after: 100 },
+            border: style.rule
+              ? { bottom: { style: BorderStyle.SINGLE, size: 6, color: hex(style.rule), space: 1 } }
+              : undefined,
           },
         },
       },
@@ -105,8 +140,8 @@ export async function renderDocx(doc: ResumeDocument, info: { title: string; sub
       {
         properties: {
           page: {
-            size: PAGE[doc.pageSize],
-            margin: { top: 720, bottom: 720, left: 900, right: 900 },
+            size: page,
+            margin: { top: margin.y, bottom: margin.y, left: margin.x, right: margin.x },
           },
         },
         children,

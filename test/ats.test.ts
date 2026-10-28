@@ -8,6 +8,8 @@ function doc(bullets: string[], summary = "Backend engineer with 7 years of expe
     headline: "Backend Engineer",
     contact: ["alex@example.com", "+1 555 010 2030"],
     pageSize: "A4",
+    template: "classic",
+    fitLevel: 0,
     sections: [
       { key: "summary", title: "Summary", paragraph: summary, entries: [], lines: [] },
       { key: "skills", title: "Skills", paragraph: "", entries: [], lines: ["Languages: Go, C++, Node.js", "Infra: CI/CD, Kubernetes"] },

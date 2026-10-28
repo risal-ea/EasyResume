@@ -1,10 +1,9 @@
 import PDFDocument from "pdfkit";
-import type { ResumeDocument } from "../resume/types";
+import type { ResumeDocument, ResumeEntry } from "../resume/types";
 import { joinNonEmpty } from "./format";
 import { splitLabel } from "./markdown";
+import { MAX_FIT_LEVEL, MAX_PAGES, resumeStyle } from "./templates";
 
-const REGULAR = "Helvetica";
-const BOLD = "Helvetica-Bold";
 const INK = "#111111";
 const MUTED = "#444444";
 
@@ -13,14 +12,37 @@ export interface PdfResult {
   pageCount: number;
 }
 
+type PdfInfo = { title: string; subject?: string };
+
+/**
+ * Renders with the template's normal spacing, then tighter and tighter until
+ * the resume fits on MAX_PAGES. The returned document carries the fit level
+ * used, so the DOCX and HTML can match it. If even the tightest layout is too
+ * long, the result has more than MAX_PAGES pages and the caller decides.
+ */
+export async function renderPdfToFit(doc: ResumeDocument, info: PdfInfo): Promise<PdfResult & { document: ResumeDocument }> {
+  for (let fitLevel = 0; ; fitLevel++) {
+    const document = { ...doc, fitLevel };
+    const result = await renderPdf(document, info);
+    if (result.pageCount <= MAX_PAGES || fitLevel >= MAX_FIT_LEVEL) return { ...result, document };
+  }
+}
+
 /**
  * ATS-safe PDF: one column, real text (no images or tables), standard
  * headings and contact details in the body rather than a page header.
  */
-export function renderPdf(doc: ResumeDocument, info: { title: string; subject?: string }): Promise<PdfResult> {
+export function renderPdf(doc: ResumeDocument, info: PdfInfo): Promise<PdfResult> {
+  const style = resumeStyle(doc);
+  const { size } = style;
+  // The built-in PDF fonts: no embedding, and metrically equivalent to Arial / Times New Roman in the DOCX.
+  const REGULAR = style.serif ? "Times-Roman" : "Helvetica";
+  const BOLD = style.serif ? "Times-Bold" : "Helvetica-Bold";
+  const headerAlign = style.centerHeader ? "center" : "left";
+
   const pdf = new PDFDocument({
     size: doc.pageSize === "Letter" ? "LETTER" : "A4",
-    margins: { top: 46, bottom: 46, left: 54, right: 54 },
+    margins: { top: style.margin.y, bottom: style.margin.y, left: style.margin.x, right: style.margin.x },
     bufferPages: true,
     info: { Title: info.title, Author: doc.name, Subject: info.subject ?? "", Creator: "EasyResume" },
   });
@@ -38,58 +60,80 @@ export function renderPdf(doc: ResumeDocument, info: { title: string; subject?: 
   const ensureSpace = (height: number) => {
     if (pdf.y + height > bottom()) pdf.addPage();
   };
-  const write = (text: string, font: string, size: number, color = INK, options: PDFKit.Mixins.TextOptions = {}) =>
-    pdf.font(font).fontSize(size).fillColor(color).text(pdfSafe(text), { width, lineGap: 1.5, ...options });
+  const write = (text: string, font: string, pt: number, color = INK, options: PDFKit.Mixins.TextOptions = {}) =>
+    pdf.font(font).fontSize(pt).fillColor(color).text(pdfSafe(text), { width, lineGap: style.lineGap, ...options });
 
-  write(doc.name || "Resume", BOLD, 20);
-  if (doc.headline) write(doc.headline, REGULAR, 11, "#333333");
-  if (doc.contact.length) write(doc.contact.join("  |  "), REGULAR, 9.5, "#333333");
+  // "Title — Company", with the dates at the right margin when the template asks for it.
+  // The title is drawn first so text extraction reads it before the dates.
+  const entryHeading = (e: ResumeEntry, dates: string) => {
+    const top = pdf.y;
+    const datesWidth = dates ? pdf.font(REGULAR).fontSize(size.meta).widthOfString(pdfSafe(dates)) : 0;
+    const titleWidth = dates ? width - datesWidth - 12 : width;
+    if (e.subtitle) {
+      write(e.title, BOLD, size.title, INK, { continued: true, width: titleWidth });
+      write(` — ${e.subtitle}`, REGULAR, size.title, INK, { width: titleWidth });
+    } else {
+      write(e.title, BOLD, size.title, INK, { width: titleWidth });
+    }
+    if (dates) {
+      const below = pdf.y;
+      // Line the smaller date text up with the title's baseline.
+      const y = top + (size.title - size.meta) * 0.75;
+      pdf.font(REGULAR).fontSize(size.meta).fillColor(MUTED).text(pdfSafe(dates), left + width - datesWidth, y, { lineBreak: false });
+      pdf.x = left;
+      pdf.y = below;
+    }
+  };
+
+  write(doc.name || "Resume", BOLD, size.name, style.accent, { align: headerAlign });
+  if (doc.headline) write(doc.headline, REGULAR, size.headline, "#333333", { align: headerAlign });
+  if (doc.contact.length) write(doc.contact.join("  |  "), REGULAR, size.contact, "#333333", { align: headerAlign });
 
   for (const section of doc.sections) {
-    pdf.moveDown(0.7);
-    ensureSpace(56);
+    pdf.y += style.sectionGap;
+    // Keep a heading together with the start of its first entry.
+    ensureSpace(size.heading + size.body * 4.5);
     pdf.x = left;
-    write(section.title.toUpperCase(), BOLD, 11, INK, { characterSpacing: 0.4 });
-    const ruleY = pdf.y + 1;
-    pdf.moveTo(left, ruleY).lineTo(left + width, ruleY).lineWidth(0.7).strokeColor("#999999").stroke();
-    pdf.y = ruleY + 4;
+    write(section.title.toUpperCase(), BOLD, size.heading, style.accent, { characterSpacing: 0.4 });
+    if (style.rule) {
+      const ruleY = pdf.y + 1;
+      pdf.moveTo(left, ruleY).lineTo(left + width, ruleY).lineWidth(0.7).strokeColor(style.rule).stroke();
+      pdf.y = ruleY + 4;
+    } else {
+      pdf.y += 2;
+    }
 
-    if (section.paragraph) write(section.paragraph, REGULAR, 10);
+    if (section.paragraph) write(section.paragraph, REGULAR, size.body);
 
     section.entries.forEach((e, i) => {
-      if (i > 0) pdf.moveDown(0.45);
-      ensureSpace(40);
+      if (i > 0) pdf.y += style.entryGap;
+      ensureSpace(size.body * 4);
       pdf.x = left;
-      if (e.subtitle) {
-        write(e.title, BOLD, 10.5, INK, { continued: true });
-        write(` — ${e.subtitle}`, REGULAR, 10.5);
-      } else {
-        write(e.title, BOLD, 10.5);
-      }
-      const meta = joinNonEmpty([e.dates, e.meta], "  |  ");
-      if (meta) write(meta, REGULAR, 9.5, MUTED);
-      pdf.moveDown(0.15);
+      entryHeading(e, style.datesRight ? e.dates : "");
+      const meta = style.datesRight ? e.meta : joinNonEmpty([e.dates, e.meta], "  |  ");
+      if (meta) write(meta, REGULAR, size.meta, MUTED);
+      pdf.y += size.body * 0.15;
       for (const bullet of e.bullets) {
-        ensureSpace(14);
+        ensureSpace(size.body * 1.4);
         const y = pdf.y;
-        pdf.font(REGULAR).fontSize(10).fillColor(INK).text("•", left + 4, y, { width: 10, lineBreak: false });
-        pdf.text(pdfSafe(bullet), left + 16, y, { width: width - 16, lineGap: 1.5 });
+        pdf.font(REGULAR).fontSize(size.body).fillColor(INK).text("•", left + 4, y, { width: 10, lineBreak: false });
+        pdf.text(pdfSafe(bullet), left + 16, y, { width: width - 16, lineGap: style.lineGap });
         pdf.x = left;
-        pdf.moveDown(0.1);
+        pdf.y += size.body * 0.1;
       }
     });
 
     for (const line of section.lines) {
-      ensureSpace(14);
+      ensureSpace(size.body * 1.4);
       pdf.x = left;
       const [label, rest] = splitLabel(line, section.key === "skills");
       if (label) {
-        write(`${label}: `, BOLD, 10, INK, { continued: true });
-        write(rest, REGULAR, 10);
+        write(`${label}: `, BOLD, size.body, INK, { continued: true });
+        write(rest, REGULAR, size.body);
       } else {
-        write(line, REGULAR, 10);
+        write(line, REGULAR, size.body);
       }
-      pdf.moveDown(0.1);
+      pdf.y += size.body * 0.1;
     }
   }
 

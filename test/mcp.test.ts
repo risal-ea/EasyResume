@@ -145,6 +145,35 @@ describe("MCP server", () => {
     expect(bad.isError).toBe(true);
   });
 
+  it("rejects resumes longer than two pages and applies a template", async () => {
+    saveProfile(sampleProfile());
+    const bullets = Array.from({ length: 200 }, (_, i) => `Shipped payment service ${i + 1} in Go and Kafka handling 4M transactions per day`);
+    const tooLong = await call("create_resume", {
+      targetTitle: "Engineer",
+      jobDescription: "JD",
+      experience: [{ profileId: "exp-fintrail", bullets }],
+    });
+    expect(tooLong.isError).toBe(true);
+    expect(tooLong.text).toContain("limited to 2");
+    expect(listResumes()).toHaveLength(0);
+
+    const created = await call("create_resume", {
+      targetTitle: "Engineer",
+      jobDescription: "JD",
+      experience: [{ profileId: "exp-fintrail" }],
+      template: "modern",
+    });
+    expect(created.text).toContain("Template: modern");
+    expect(created.text).toContain("Pages: 1 (at most 2)");
+    const [record] = listResumes();
+    expect(record!.document.template).toBe("modern");
+
+    // A failed update keeps the saved version.
+    const failed = await call("update_resume", { resumeId: record!.id, experience: [{ profileId: "exp-fintrail", bullets }] });
+    expect(failed.isError).toBe(true);
+    expect(getResume(record!.id)!.updatedAt).toBe(record!.updatedAt);
+  });
+
   it("returns a readable error for made-up profile ids", async () => {
     saveProfile(sampleProfile());
     const result = await call("create_resume", {

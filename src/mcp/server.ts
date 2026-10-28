@@ -2,6 +2,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
 import { renderMarkdown } from "../core/render/markdown";
+import { MAX_PAGES } from "../core/render/templates";
 import { createResume, recheckResume, updateResume } from "../core/resume/service";
 import type { ResumeRecord } from "../core/resume/types";
 import { ProfileImportSchema, resumeDraftShape } from "../core/schema";
@@ -60,7 +61,7 @@ export function createMcpServer(): McpServer {
     {
       title: "Create tailored resume",
       description:
-        "Creates an ATS-friendly resume for a job from the user's profile and renders it to PDF, DOCX and Markdown. Reference profile items by `id`; employers, titles, dates, schools and certificate names are filled in from the profile, you supply the tailored wording. Returns file paths, a web link, an ATS keyword/format report and warnings to act on.",
+        "Creates an ATS-friendly resume for a job from the user's profile and renders it to PDF, DOCX and Markdown. Reference profile items by `id`; employers, titles, dates, schools and certificate names are filled in from the profile, you supply the tailored wording. Resumes are limited to 2 pages: content that does not fit is rejected with an error, so shorten it and call again. Returns file paths, a web link, an ATS keyword/format report and warnings to act on.",
       inputSchema: resumeDraftShape,
       annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
     },
@@ -252,7 +253,8 @@ function resumeResult(heading: string, record: ResumeRecord): CallToolResult {
 function formatHeader(record: ResumeRecord): string {
   return [
     `Resume id: ${record.id}`,
-    `Web page: ${webUrl(`/resumes/${record.id}`)} (the EasyResume web UI must be running)`,
+    `Web page: ${webUrl(`/resumes/${record.id}`)} (the user can edit the resume, switch templates and download it there; the EasyResume web UI must be running)`,
+    `Template: ${record.draft.template}`,
     `PDF: ${resumeFilePath(record, "pdf")}`,
     `DOCX: ${resumeFilePath(record, "docx")}`,
     `Markdown: ${resumeFilePath(record, "md")}`,
@@ -269,7 +271,7 @@ function formatAts(record: ResumeRecord): string {
     lines.push(`- Keyword coverage: ${ats.keywordCoverage}% (${ats.foundKeywords.length}/${total})`);
     if (ats.missingKeywords.length) lines.push(`- Missing keywords: ${ats.missingKeywords.join(", ")}`);
   }
-  lines.push(`- Pages: ${ats.pageCount}`);
+  lines.push(`- Pages: ${ats.pageCount} (at most ${MAX_PAGES})`);
   if (ats.issues.length === 0) lines.push("- Format issues: none");
   for (const issue of ats.issues) lines.push(`- ${issue.level === "error" ? "ERROR" : "Warning"}: ${issue.message}`);
   return lines.join("\n");

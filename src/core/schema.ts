@@ -191,6 +191,11 @@ export const SECTION_KEYS = [
 export const SectionKeySchema = z.enum(SECTION_KEYS);
 export type SectionKey = z.infer<typeof SectionKeySchema>;
 
+/** Visual templates. All of them are single-column, real-text layouts that ATS parsers read reliably. */
+export const TEMPLATE_IDS = ["classic", "modern", "traditional", "compact"] as const;
+export const TemplateIdSchema = z.enum(TEMPLATE_IDS);
+export type TemplateId = z.infer<typeof TemplateIdSchema>;
+
 const profileId = z.string().min(1).describe("The `id` of the item in the profile (from get_profile).");
 const bullets = z
   .array(z.string().min(1))
@@ -252,6 +257,9 @@ export const resumeDraftShape = {
     .array(SectionKeySchema)
     .optional()
     .describe("Optional section order. Sections with content that are not listed are appended in the default order."),
+  template: TemplateIdSchema.optional().describe(
+    "Visual template, all ATS-safe: classic (default), modern, traditional (serif, centred header) or compact (smaller type). Set it only when the user asks for one; they can also switch templates in the web UI.",
+  ),
 };
 
 export const ResumeDraftInputSchema = z.object(resumeDraftShape);
@@ -274,6 +282,7 @@ export interface ResumeDraft {
   publications: { profileId: string }[];
   languages: { profileId: string }[];
   sectionOrder: SectionKey[];
+  template: TemplateId;
 }
 
 export function normalizeDraft(input: ResumeDraftInput): ResumeDraft {
@@ -294,5 +303,32 @@ export function normalizeDraft(input: ResumeDraftInput): ResumeDraft {
     publications: input.publications ?? [],
     languages: input.languages ?? [],
     sectionOrder: input.sectionOrder ?? [],
+    template: input.template ?? "classic",
   };
 }
+
+/**
+ * The parts of a draft the user can change in the web UI's resume editor. The
+ * target job (title, company, description, keywords) stays as the AI set it.
+ */
+export const ResumeEditsSchema = ResumeDraftInputSchema.pick({
+  headline: true,
+  summary: true,
+  skills: true,
+  experience: true,
+  projects: true,
+  education: true,
+  certifications: true,
+  awards: true,
+  volunteer: true,
+  publications: true,
+  languages: true,
+  sectionOrder: true,
+  template: true,
+})
+  .extend({
+    // A user may list skills without naming the group; the AI is asked to always name it.
+    skills: z.array(z.object({ category: z.string(), items: z.array(z.string().min(1)).min(1) })),
+  })
+  .partial();
+export type ResumeEdits = z.infer<typeof ResumeEditsSchema>;

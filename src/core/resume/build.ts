@@ -153,7 +153,7 @@ export function buildResume(profile: Profile, draft: ResumeDraft): BuildResult {
           subtitle: item.organization,
           meta: "",
           dates: formatDateRange(item.startDate, item.endDate, item.current),
-          bullets: ref.bullets ?? (item.highlights.length ? item.highlights : item.summary ? [item.summary] : []),
+          bullets: ref.bullets ?? volunteerBullets(item),
         }),
       ),
     });
@@ -184,9 +184,64 @@ export function buildResume(profile: Profile, draft: ResumeDraft): BuildResult {
     contact: [basics.email, basics.phone, location, ...basics.links.map((l) => displayUrl(l.url))].filter(Boolean),
     sections,
     pageSize: profile.settings.pageSize,
+    template: draft.template,
+    // Set by the PDF renderer once it knows how much space the content needs.
+    fitLevel: 0,
   };
 
   return { document, warnings };
+}
+
+/** Draft fields that pick profile items by id. */
+export type ProfileRefKey =
+  | "experience"
+  | "projects"
+  | "education"
+  | "volunteer"
+  | "certifications"
+  | "awards"
+  | "publications"
+  | "languages";
+
+export interface ProfileItemOption {
+  id: string;
+  label: string;
+  /** Dates, to tell similar items apart. */
+  detail: string;
+  /** What the entry shows when the draft has no tailored bullets for it. */
+  bullets: string[];
+}
+
+/** Every profile item a resume can include, labelled for the web UI's resume editor. */
+export function profileItemOptions(profile: Profile): Record<ProfileRefKey, ProfileItemOption[]> {
+  const option = (id: string, label: string, detail = "", bullets: string[] = []) => ({ id, label, detail, bullets });
+  return {
+    experience: profile.experience.map((e) =>
+      option(e.id, joinNonEmpty([e.title, e.company], " — "), formatDateRange(e.startDate, e.endDate, e.current), e.achievements),
+    ),
+    projects: profile.projects.map((p) =>
+      option(p.id, joinNonEmpty([p.name, p.role], " — "), formatDateRange(p.startDate, p.endDate), p.highlights),
+    ),
+    education: profile.education.map((e) =>
+      option(
+        e.id,
+        joinNonEmpty([degreeTitle(e.degree, e.field), e.institution], " — "),
+        formatDateRange(e.startDate, e.endDate),
+        e.achievements,
+      ),
+    ),
+    volunteer: profile.volunteer.map((v) =>
+      option(v.id, joinNonEmpty([v.role, v.organization], " — "), formatDateRange(v.startDate, v.endDate, v.current), volunteerBullets(v)),
+    ),
+    certifications: profile.certifications.map((c) => option(c.id, joinNonEmpty([c.name, c.issuer], ", "), formatMonth(c.date))),
+    awards: profile.awards.map((a) => option(a.id, joinNonEmpty([a.title, a.awarder], ", "), formatMonth(a.date))),
+    publications: profile.publications.map((p) => option(p.id, joinNonEmpty([p.name, p.publisher], ", "), formatMonth(p.date))),
+    languages: profile.languages.map((l) => option(l.id, l.fluency ? `${l.language} (${l.fluency})` : l.language)),
+  };
+}
+
+function volunteerBullets(item: Profile["volunteer"][number]): string[] {
+  return item.highlights.length ? item.highlights : item.summary ? [item.summary] : [];
 }
 
 function entry(e: ResumeEntry): ResumeEntry {

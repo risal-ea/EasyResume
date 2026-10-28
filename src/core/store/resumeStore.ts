@@ -34,7 +34,12 @@ export function getResume(id: string): ResumeRecord | null {
   if (!isValidResumeId(id)) return null;
   const file = path.join(resumeFolder(id), "resume.json");
   if (!existsSync(file)) return null;
-  return JSON.parse(readFileSync(file, "utf8")) as ResumeRecord;
+  const record = JSON.parse(readFileSync(file, "utf8")) as ResumeRecord;
+  // Resumes saved before templates existed used the classic layout.
+  record.draft.template ??= "classic";
+  record.document.template ??= "classic";
+  record.document.fitLevel ??= 0;
+  return record;
 }
 
 /** All saved resumes, newest first. */

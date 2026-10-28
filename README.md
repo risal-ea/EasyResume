@@ -1,6 +1,6 @@
 # EasyResume
 
-A local MCP server and web UI for ATS-friendly resumes. Enter your career details once in the web UI. Then, in Claude or Codex, paste a job description and ask for a resume. The assistant reads your profile over MCP and writes tailored content, and EasyResume renders it to PDF, DOCX and Markdown with an ATS keyword report.
+A local MCP server and web UI for ATS-friendly resumes. Enter your career details once in the web UI. Then, in Claude or Codex, paste a job description and ask for a resume. The assistant reads your profile over MCP and writes tailored content, and EasyResume renders it to PDF, DOCX and Markdown with an ATS keyword report. Before downloading, you can edit the resume and choose a template in the web UI.
 
 Everything stays on your computer in `~/.easyresume`.
 
@@ -73,6 +73,17 @@ The assistant:
 
 Every resume is listed under **Resumes** in the web UI, with a preview, downloads and the ATS report.
 
+### Editing and templates
+
+Before downloading, you can change a resume yourself:
+
+- **Template**: pick Classic, Modern, Traditional (serif) or Compact on the resume page. All of them are single-column with real text and standard headings, so they stay ATS-friendly. The PDF, DOCX and preview always match.
+- **Edit resume**: change the headline, summary, skills and bullets; add, remove or reorder jobs, projects and other items from your profile; reorder sections. The preview, page count and keyword coverage update as you type. Save, then download from the same page. Employers, titles, dates and schools still come from your profile, so edit those on the Profile page.
+
+Resumes are limited to **2 pages**. When content runs over, EasyResume first tightens the spacing (and, if needed, the type size slightly) to fit. If it still doesn't fit, the editor won't save it and `create_resume` / `update_resume` return an error asking the assistant to shorten it.
+
+Your edits are saved into the resume, so a later `update_resume` from your assistant builds on them.
+
 ### MCP tools
 
 | Tool | What it does |
@@ -111,7 +122,7 @@ src/
 test/                 vitest suites and fixtures
 ```
 
-Only the MCP process renders PDF and DOCX files. The web UI serves them from disk, so Next.js never bundles pdfkit or docx.
+PDF and DOCX files are rendered by the MCP process and by the web UI's resume editor. Next.js loads pdfkit and docx from `node_modules` (`serverExternalPackages`) rather than bundling them.
 
 ## Known limitations
 
