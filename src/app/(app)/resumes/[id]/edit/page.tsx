@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { withoutExampleData } from "@/core/exampleProfile";
 import { renderHtml } from "@/core/render/html";
-import { profileItemOptions } from "@/core/resume/build";
+import { profileHeader, profileItemOptions } from "@/core/resume/build";
 import { SECTION_KEYS } from "@/core/schema";
 import { loadProfile } from "@/core/store/profileStore";
 import { getResume } from "@/core/store/resumeStore";
@@ -14,29 +14,37 @@ export default async function EditResumePage({ params }: { params: Promise<{ id:
   const record = getResume(id);
   if (!record) notFound();
   const { draft, document, ats } = record;
+  // Example entries the user never changed cannot go on a resume.
+  const profile = withoutExampleData(loadProfile()).profile;
+  // Each item carries the user's rewording of its profile text, if any.
+  const withEdit = <R extends { profileId: string }>(refs: R[]) => refs.map((r) => ({ ...r, edit: draft.overrides[r.profileId] ?? {} }));
 
   return (
     <ResumeEditor
+      // A fresh editor per resume, so unsaved edits can never carry over to another one.
+      key={id}
       id={id}
       target={[draft.targetTitle, draft.company].filter(Boolean).join(" at ")}
       // Start from what the resume shows, including text that falls back to the profile.
       initial={{
         template: draft.template,
+        header: draft.header,
         headline: document.headline,
+        sectionTitles: draft.sectionTitles,
         summary: document.sections.find((s) => s.key === "summary")?.paragraph ?? "",
         skills: draft.skills,
         sectionOrder: [...new Set([...draft.sectionOrder, ...SECTION_KEYS])],
-        experience: draft.experience,
-        projects: draft.projects,
-        education: draft.education,
-        volunteer: draft.volunteer,
-        certifications: draft.certifications,
-        awards: draft.awards,
-        publications: draft.publications,
-        languages: draft.languages,
+        experience: withEdit(draft.experience),
+        projects: withEdit(draft.projects),
+        education: withEdit(draft.education),
+        volunteer: withEdit(draft.volunteer),
+        certifications: withEdit(draft.certifications),
+        awards: withEdit(draft.awards),
+        publications: withEdit(draft.publications),
+        languages: withEdit(draft.languages),
       }}
-      // Example entries the user never changed cannot go on a resume.
-      options={profileItemOptions(withoutExampleData(loadProfile()).profile)}
+      profileHeader={profileHeader(profile)}
+      options={profileItemOptions(profile)}
       initialPreview={{
         html: renderHtml(document),
         pageCount: ats.pageCount,

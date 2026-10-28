@@ -10,18 +10,23 @@ import { TagInput } from "@/components/TagInput";
 import { TemplatePicker } from "@/components/TemplatePicker";
 import { MAX_PAGES } from "@/core/render/templates";
 import { SECTION_TITLES, type ProfileItemOption, type ProfileRefKey } from "@/core/resume/build";
-import type { ResumeEdits, SectionKey, TemplateId } from "@/core/schema";
+import type { HeaderOverride, ItemOverride, ResumeEdits, SectionKey, SectionTitles, TemplateId } from "@/core/schema";
 import { previewResumeAction, saveResumeAction, type EditorPreview } from "../actions";
 
 type EntryKey = "experience" | "projects" | "education" | "volunteer";
 type LineKey = Exclude<ProfileRefKey, EntryKey>;
-type EntryRef = { profileId: string; bullets?: string[] };
-type LineRef = { profileId: string };
+/** `edit` holds the user's rewording of the profile's text for this resume. */
+type EntryRef = { profileId: string; bullets?: string[]; edit: ItemOverride };
+type LineRef = { profileId: string; edit: ItemOverride };
 type SkillGroup = { category: string; items: string[] };
+type EntryField = [field: keyof ItemOverride, label: string];
 
 export interface EditorState extends Record<EntryKey, EntryRef[]>, Record<LineKey, LineRef[]> {
   template: TemplateId;
+  /** The user's own name and contact details for this resume. */
+  header: HeaderOverride;
   headline: string;
+  sectionTitles: SectionTitles;
   summary: string;
   skills: SkillGroup[];
   /** Every section key, in the order the resume shows them. */
@@ -32,18 +37,37 @@ type Status = { kind: "idle" | "saving" | "saved" | "error"; message?: string };
 
 const ENTRY_KEYS: SectionKey[] = ["experience", "projects", "education", "volunteer"] satisfies EntryKey[];
 const isEntryKey = (key: SectionKey): key is EntryKey => ENTRY_KEYS.includes(key);
+const REF_KEYS = [
+  "experience",
+  "projects",
+  "education",
+  "volunteer",
+  "certifications",
+  "awards",
+  "publications",
+  "languages",
+] as const satisfies ProfileRefKey[];
 
+/** The text fields shown above each entry's bullets. */
+const ENTRY_FIELDS: Record<EntryKey, EntryField[]> = {
+  experience: [["title", "Job title"], ["subtitle", "Company"], ["meta", "Location"], ["dates", "Dates"]],
+  projects: [["title", "Project"], ["subtitle", "Role"], ["meta", "Link"], ["dates", "Dates"]],
+  education: [["title", "Degree"], ["subtitle", "School"], ["meta", "Location"], ["dates", "Dates"], ["grade", "Grade"]],
+  volunteer: [["title", "Role"], ["subtitle", "Organization"], ["meta", "Location"], ["dates", "Dates"]],
+};
+
+const THIS_RESUME_ONLY = "Edits here change this resume only, not your profile or other resumes.";
 const INTROS: Record<SectionKey, string> = {
   summary: "2-4 sentences aimed at this job. Left empty, the summary from your profile is used.",
   skills: "Put the skills the job asks for first.",
-  experience: "Job titles, employers and dates come from your profile. Edit the bullets here.",
-  projects: "Names, roles and dates come from your profile. Edit the bullets here.",
-  education: "Degrees, schools, dates and grades come from your profile. Bullets are optional extras.",
-  certifications: "Most relevant first.",
-  awards: "Most relevant first.",
-  volunteer: "Roles, organizations and dates come from your profile. Edit the bullets here.",
-  publications: "Most relevant first.",
-  languages: "Spoken languages, shown on one line.",
+  experience: `Filled in from your profile. ${THIS_RESUME_ONLY}`,
+  projects: `Filled in from your profile. ${THIS_RESUME_ONLY}`,
+  education: `Filled in from your profile. Bullets are optional extras. ${THIS_RESUME_ONLY}`,
+  certifications: `Most relevant first. ${THIS_RESUME_ONLY}`,
+  awards: `Most relevant first. ${THIS_RESUME_ONLY}`,
+  volunteer: `Filled in from your profile. ${THIS_RESUME_ONLY}`,
+  publications: `Most relevant first. ${THIS_RESUME_ONLY}`,
+  languages: `Spoken languages, shown on one line. ${THIS_RESUME_ONLY}`,
 };
 
 const DOWNLOADS = [
@@ -57,11 +81,13 @@ interface Props {
   /** "Senior Backend Engineer at Acme" */
   target: string;
   initial: EditorState;
+  /** The name and contact details from the profile, shown where the user has not changed them. */
+  profileHeader: Required<HeaderOverride>;
   options: Record<ProfileRefKey, ProfileItemOption[]>;
   initialPreview: EditorPreview;
 }
 
-export function ResumeEditor({ id, target, initial, options, initialPreview }: Props) {
+export function ResumeEditor({ id, target, initial, profileHeader, options, initialPreview }: Props) {
   const [state, setState] = useState(initial);
   const edits = toEdits(state);
   const editsJson = JSON.stringify(edits);
@@ -133,6 +159,10 @@ export function ResumeEditor({ id, target, initial, options, initialPreview }: P
     setState((s) => ({ ...s, [key]: value }));
     setStatus((s) => (s.kind === "error" ? { kind: "idle" } : s));
   };
+  const setHeader = <K extends keyof HeaderOverride>(field: K, value: Required<HeaderOverride>[K]) =>
+    update("header", setField(state.header, field, value, profileHeader));
+  const headerValue = <K extends keyof HeaderOverride>(field: K) => state.header[field] ?? profileHeader[field];
+  const sectionTitle = (key: SectionKey) => state.sectionTitles[key]?.trim() || SECTION_TITLES[key];
 
   // Sections with nothing to show and nothing in the profile to add are left out.
   const visible = state.sectionOrder.filter(
@@ -154,7 +184,9 @@ export function ResumeEditor({ id, target, initial, options, initialPreview }: P
       );
     }
     if (key === "skills") return <SkillsEditor groups={state.skills} onChange={(skills) => update("skills", skills)} />;
-    if (isEntryKey(key)) return <EntryList refs={state[key]} options={options[key]} onChange={(refs) => update(key, refs)} />;
+    if (isEntryKey(key)) {
+      return <EntryList refs={state[key]} options={options[key]} fields={ENTRY_FIELDS[key]} onChange={(refs) => update(key, refs)} />;
+    }
     return <LineList refs={state[key]} options={options[key]} onChange={(refs) => update(key, refs)} />;
   };
 
@@ -169,7 +201,7 @@ export function ResumeEditor({ id, target, initial, options, initialPreview }: P
             : "Unsaved changes"
           : status.kind === "saved"
             ? status.message
-            : "Edit the content or switch templates. The preview updates as you type.";
+            : "Edit any text, rename section headings or switch templates. The preview updates as you type.";
   const statusClass =
     status.kind === "error" || (dirty && tooLong) ? "status-error" : dirty ? "status-dirty" : status.kind === "saved" ? "status-ok" : "";
 
@@ -182,6 +214,9 @@ export function ResumeEditor({ id, target, initial, options, initialPreview }: P
           </p>
           <h1>Edit resume</h1>
           <p>{target}</p>
+          <p className="muted" style={{ margin: 0 }}>
+            Edits here change only this resume. Your profile and your other resumes stay as they are.
+          </p>
         </div>
       </div>
 
@@ -216,22 +251,45 @@ export function ResumeEditor({ id, target, initial, options, initialPreview }: P
           </section>
 
           <section className="card">
-            <h2>Headline</h2>
+            <h2>Header</h2>
             <p className="card-intro">
-              Shown under your name. Your name and contact details come from your <Link href="/profile">profile</Link>.
+              Filled in from your <Link href="/profile">profile</Link>. {THIS_RESUME_ONLY}
             </p>
-            <input type="text" aria-label="Headline" value={state.headline} onChange={(e) => update("headline", e.target.value)} />
+            <div className="grid">
+              <TextField label="Name" value={headerValue("name")} onChange={(v) => setHeader("name", v)} />
+              <TextField label="Headline" value={state.headline} onChange={(v) => update("headline", v)} />
+            </div>
+            <div className="grid">
+              <TextField label="Email" value={headerValue("email")} onChange={(v) => setHeader("email", v)} />
+              <TextField label="Phone" value={headerValue("phone")} onChange={(v) => setHeader("phone", v)} />
+              <TextField label="Location" value={headerValue("location")} onChange={(v) => setHeader("location", v)} />
+            </div>
+            <LinesInput
+              label="Links"
+              rows={2}
+              value={headerValue("links")}
+              onChange={(links) => setHeader("links", links)}
+              hint="One per line, as the resume should show them, e.g. linkedin.com/in/jane."
+            />
           </section>
 
           {visible.map((key, i) => (
             <section key={key} className="card">
-              <div className="row" style={{ justifyContent: "space-between" }}>
-                <h2>{SECTION_TITLES[key]}</h2>
+              <div className="row" style={{ justifyContent: "space-between", flexWrap: "nowrap" }}>
+                <input
+                  type="text"
+                  className="heading-input"
+                  aria-label={`Heading for ${SECTION_TITLES[key]}`}
+                  title="Click to rename this heading"
+                  placeholder={SECTION_TITLES[key]}
+                  value={state.sectionTitles[key] ?? SECTION_TITLES[key]}
+                  onChange={(e) => update("sectionTitles", setField(state.sectionTitles, key, e.target.value, SECTION_TITLES))}
+                />
                 <span className="item-actions">
                   <button
                     type="button"
                     className="btn btn-ghost btn-small"
-                    aria-label={`Move ${SECTION_TITLES[key]} up`}
+                    aria-label={`Move ${sectionTitle(key)} up`}
                     disabled={i === 0}
                     onClick={() => moveSection(key, -1)}
                   >
@@ -240,7 +298,7 @@ export function ResumeEditor({ id, target, initial, options, initialPreview }: P
                   <button
                     type="button"
                     className="btn btn-ghost btn-small"
-                    aria-label={`Move ${SECTION_TITLES[key]} down`}
+                    aria-label={`Move ${sectionTitle(key)} down`}
                     disabled={i === visible.length - 1}
                     onClick={() => moveSection(key, 1)}
                   >
@@ -293,20 +351,50 @@ export function ResumeEditor({ id, target, initial, options, initialPreview }: P
   );
 }
 
-/** What the server gets: blank bullets and empty skill groups dropped. */
+/** What the server gets: blank bullets and empty skill groups dropped, rewording moved to `overrides`. */
 function toEdits(state: EditorState): ResumeEdits {
   const entries = (refs: EntryRef[]) =>
     refs.map(({ profileId, bullets }) => ({ profileId, bullets: bullets?.map((b) => b.trim()).filter(Boolean) }));
+  const lines = (refs: LineRef[]) => refs.map(({ profileId }) => ({ profileId }));
   return {
     ...state,
+    header: { ...state.header, ...(state.header.links && { links: state.header.links.map((l) => l.trim()).filter(Boolean) }) },
     headline: state.headline.trim(),
+    // A blanked-out heading goes back to the standard one.
+    sectionTitles: Object.fromEntries(
+      Object.entries(state.sectionTitles)
+        .map(([key, title]) => [key, title.trim()])
+        .filter(([, title]) => title),
+    ),
     summary: state.summary.trim(),
     skills: state.skills.map((g) => ({ category: g.category.trim(), items: g.items })).filter((g) => g.items.length > 0),
     experience: entries(state.experience),
     projects: entries(state.projects),
     education: entries(state.education),
     volunteer: entries(state.volunteer),
+    certifications: lines(state.certifications),
+    awards: lines(state.awards),
+    publications: lines(state.publications),
+    languages: lines(state.languages),
+    // Only items still on the resume keep their rewording.
+    overrides: Object.fromEntries(
+      REF_KEYS.flatMap((key) => state[key])
+        .filter((ref) => Object.keys(ref.edit).length > 0)
+        .map((ref) => [ref.profileId, ref.edit]),
+    ),
   };
+}
+
+/** `edits` with one field set. Text matching the default is not stored, so later profile changes still show. */
+function setField<T extends object, K extends keyof T>(edits: T, field: K, value: T[K], defaults: T): T {
+  const next = { ...edits, [field]: value };
+  if (JSON.stringify(value) === JSON.stringify(defaults[field] ?? "")) delete next[field];
+  return next;
+}
+
+/** Sets one field of an item's rewording. */
+function withEdit<R extends { edit: ItemOverride }>(ref: R, field: keyof ItemOverride, value: string, defaults: ItemOverride): R {
+  return { ...ref, edit: setField(ref.edit, field, value, defaults) };
 }
 
 function move<T>(list: T[], from: number, to: number): T[] {
@@ -326,21 +414,51 @@ function listActions<T>(list: T[], i: number, onChange: (list: T[]) => void) {
 
 const GONE = "No longer in your profile";
 
-function EntryList({ refs, options, onChange }: { refs: EntryRef[]; options: ProfileItemOption[]; onChange: (refs: EntryRef[]) => void }) {
+function EntryList({
+  refs,
+  options,
+  fields,
+  onChange,
+}: {
+  refs: EntryRef[];
+  options: ProfileItemOption[];
+  fields: EntryField[];
+  onChange: (refs: EntryRef[]) => void;
+}) {
+  const set = (i: number, ref: EntryRef) => onChange(refs.map((r, j) => (j === i ? ref : r)));
   return (
     <>
       {refs.length === 0 && <p className="empty">None on this resume.</p>}
       {refs.map((ref, i) => {
         const option = options.find((o) => o.id === ref.profileId);
+        const shown = (field: keyof ItemOverride) => ref.edit[field] ?? option?.defaults[field] ?? "";
         return (
-          <ItemCard key={ref.profileId} defaultOpen title={option?.label ?? GONE} subtitle={option?.detail} {...listActions(refs, i, onChange)}>
+          <ItemCard
+            key={ref.profileId}
+            defaultOpen
+            title={option ? [shown("title"), shown("subtitle")].filter(Boolean).join(" — ") : GONE}
+            subtitle={option && shown("dates")}
+            {...listActions(refs, i, onChange)}
+          >
             {option ? (
-              <LinesInput
-                label="Bullets"
-                value={ref.bullets ?? option.bullets}
-                onChange={(bullets) => onChange(refs.map((r, j) => (j === i ? { ...r, bullets } : r)))}
-                hint="One per line. Start with an action verb and include numbers where you have them."
-              />
+              <>
+                <div className="grid">
+                  {fields.map(([field, label]) => (
+                    <TextField
+                      key={field}
+                      label={label}
+                      value={shown(field)}
+                      onChange={(value) => set(i, withEdit(ref, field, value, option.defaults))}
+                    />
+                  ))}
+                </div>
+                <LinesInput
+                  label="Bullets"
+                  value={ref.bullets ?? option.bullets}
+                  onChange={(bullets) => set(i, { ...ref, bullets })}
+                  hint="One per line. Start with an action verb and include numbers where you have them."
+                />
+              </>
             ) : (
               <p className="muted" style={{ margin: 0 }}>
                 This item was deleted from your profile. Remove it to save the resume.
@@ -351,7 +469,7 @@ function EntryList({ refs, options, onChange }: { refs: EntryRef[]; options: Pro
       })}
       <AddFromProfile
         options={options.filter((o) => !refs.some((r) => r.profileId === o.id))}
-        onAdd={(profileId) => onChange([...refs, { profileId }])}
+        onAdd={(profileId) => onChange([...refs, { profileId, edit: {} }])}
       />
     </>
   );
@@ -367,10 +485,16 @@ function LineList({ refs, options, onChange }: { refs: LineRef[]; options: Profi
             const option = options.find((o) => o.id === ref.profileId);
             return (
               <li key={ref.profileId}>
-                <span className="item-title">
-                  {option?.label ?? GONE}
-                  {option?.detail && <span className="muted"> · {option.detail}</span>}
-                </span>
+                {option ? (
+                  <input
+                    type="text"
+                    aria-label={option.label}
+                    value={ref.edit.text ?? option.defaults.text ?? ""}
+                    onChange={(e) => onChange(refs.map((r, j) => (j === i ? withEdit(r, "text", e.target.value, option.defaults) : r)))}
+                  />
+                ) : (
+                  <span className="item-title">{GONE}</span>
+                )}
                 <ItemActions {...listActions(refs, i, onChange)} />
               </li>
             );
@@ -379,9 +503,18 @@ function LineList({ refs, options, onChange }: { refs: LineRef[]; options: Profi
       )}
       <AddFromProfile
         options={options.filter((o) => !refs.some((r) => r.profileId === o.id))}
-        onAdd={(profileId) => onChange([...refs, { profileId }])}
+        onAdd={(profileId) => onChange([...refs, { profileId, edit: {} }])}
       />
     </>
+  );
+}
+
+function TextField({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
+  return (
+    <label className="field">
+      <span className="field-label">{label}</span>
+      <input type="text" value={value} onChange={(e) => onChange(e.target.value)} />
+    </label>
   );
 }
 

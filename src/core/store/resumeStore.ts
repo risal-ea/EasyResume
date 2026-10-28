@@ -39,6 +39,10 @@ export function getResume(id: string): ResumeRecord | null {
   record.draft.template ??= "classic";
   record.document.template ??= "classic";
   record.document.fitLevel ??= 0;
+  // Resumes saved before the editor could reword everything show the profile's text.
+  record.draft.header ??= {};
+  record.draft.sectionTitles ??= {};
+  record.draft.overrides ??= {};
   return record;
 }
 
