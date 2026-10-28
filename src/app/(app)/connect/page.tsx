@@ -18,7 +18,8 @@ export default function ConnectPage() {
     process.platform === "win32"
       ? "%APPDATA%\\Claude\\claude_desktop_config.json"
       : "~/Library/Application Support/Claude/claude_desktop_config.json";
-  const desktopConfig = JSON.stringify({ mcpServers: { easyresume: { command: node, args: [cli, "mcp"] } } }, null, 2);
+  // Claude Desktop and Antigravity share this format.
+  const mcpServersConfig = JSON.stringify({ mcpServers: { easyresume: { command: node, args: [cli, "mcp"] } } }, null, 2);
   const claudeCode = `claude mcp add easyresume --scope user -- ${shellQuote(node)} ${shellQuote(cli)} mcp`;
   const codexConfig = `[mcp_servers.easyresume]\ncommand = ${JSON.stringify(node)}\nargs = [${JSON.stringify(cli)}, "mcp"]`;
 
@@ -46,7 +47,7 @@ export default function ConnectPage() {
           Open <strong>Settings → Developer → Edit Config</strong> (or the file <code>{desktopConfigPath}</code>), add the{" "}
           <code>easyresume</code> entry below to <code>mcpServers</code>, save, and restart Claude Desktop.
         </p>
-        <Snippet text={desktopConfig} />
+        <Snippet text={mcpServersConfig} />
       </section>
 
       <section className="card">
@@ -61,6 +62,18 @@ export default function ConnectPage() {
           Add this to <code>~/.codex/config.toml</code>, then restart Codex. Check it with <code>/mcp</code>.
         </p>
         <Snippet text={codexConfig} />
+      </section>
+
+      <section className="card">
+        <h2>Antigravity</h2>
+        <p className="card-intro">
+          For Gemini in Google Antigravity. In the agent panel, open{" "}
+          <strong>… → MCP Servers → Manage MCP Servers → View raw config</strong> (the file{" "}
+          <code>~/.gemini/config/mcp_config.json</code>), add the <code>easyresume</code> entry below to{" "}
+          <code>mcpServers</code>, and save. If EasyResume doesn&apos;t appear under Manage MCP Servers, restart
+          Antigravity.
+        </p>
+        <Snippet text={mcpServersConfig} />
       </section>
 
       <section className="card">
