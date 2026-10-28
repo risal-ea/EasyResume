@@ -1,7 +1,7 @@
 "use client";
 
 import { useTransition } from "react";
-import { deleteResumeAction } from "@/app/resumes/[id]/actions";
+import { deleteResumeAction } from "@/app/(app)/resumes/[id]/actions";
 
 export function DeleteResumeButton({ id }: { id: string }) {
   const [pending, startTransition] = useTransition();
