@@ -4,6 +4,8 @@ A local MCP server and web UI for ATS-friendly resumes. Enter your career detail
 
 Everything stays on your computer in `~/.easyresume`.
 
+Website and setup guide: https://risal-ea.github.io/EasyResume/
+
 ## Setup
 
 Requires Node.js 20 or later.
@@ -108,7 +110,11 @@ npm test           # vitest
 npm run typecheck
 npm run seed       # load test/fixtures/sample-profile.json (won't overwrite; add -- --force)
 npx @modelcontextprotocol/inspector node dist/cli.js mcp --no-web
+npm run dev:site   # the GitHub Pages landing page on :4748
+npm run build:site # static export of the landing page to out/ (then rebuilds the app, which the export overwrites)
 ```
+
+The landing page is shared: the local app shows it at `/`, and `.github/workflows/pages.yml` publishes a static copy to GitHub Pages on every push to `main`. The site build (`EASYRESUME_SITE=1`, see `next.config.ts`) only uses `*.site.tsx` route files, because the rest of the app needs a Node server.
 
 Environment variables: `EASYRESUME_HOME` (data folder, default `~/.easyresume`), `EASYRESUME_PORT` (default `4747`).
 

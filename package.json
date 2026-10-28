@@ -13,7 +13,9 @@
   "scripts": {
     "dev": "next dev -p 4747 -H 127.0.0.1",
     "dev:mcp": "tsx src/cli.ts mcp --no-web",
+    "dev:site": "EASYRESUME_SITE=1 next dev -p 4748 -H 127.0.0.1",
     "build": "next build && node scripts/build-cli.mjs",
+    "build:site": "EASYRESUME_SITE=1 next build && next build",
     "start": "node dist/cli.js web",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",

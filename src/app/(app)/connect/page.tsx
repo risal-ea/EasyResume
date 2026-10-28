@@ -1,6 +1,6 @@
 import { existsSync, realpathSync } from "node:fs";
 import path from "node:path";
-import { CopyButton } from "@/components/CopyButton";
+import { Snippet } from "@/components/Snippet";
 import { dataDir } from "@/paths";
 
 export const dynamic = "force-dynamic";
@@ -96,17 +96,6 @@ export default function ConnectPage() {
         </p>
       </section>
     </>
-  );
-}
-
-function Snippet({ text }: { text: string }) {
-  return (
-    <div className="snippet">
-      <pre>
-        <code>{text}</code>
-      </pre>
-      <CopyButton text={text} />
-    </div>
   );
 }
 
