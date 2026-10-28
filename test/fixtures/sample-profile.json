@@ -1,0 +1,109 @@
+{
+  "basics": {
+    "name": "Alex Morgan",
+    "headline": "Backend Software Engineer",
+    "email": "alex.morgan@example.com",
+    "phone": "+1 555 010 2030",
+    "location": { "city": "Austin", "region": "TX", "country": "USA" },
+    "links": [
+      { "label": "LinkedIn", "url": "https://www.linkedin.com/in/alex-morgan-example/" },
+      { "label": "GitHub", "url": "https://github.com/alexmorgan-example" }
+    ],
+    "summary": "Backend engineer with 7 years of experience building reliable APIs and data pipelines."
+  },
+  "experience": [
+    {
+      "id": "exp-fintrail",
+      "company": "Fintrail",
+      "title": "Senior Software Engineer",
+      "location": "Austin, TX",
+      "startDate": "2022-03",
+      "endDate": "",
+      "current": true,
+      "description": "Payments platform processing card and ACH transactions for 2,000+ merchants.",
+      "achievements": [
+        "Designed an event-driven settlement service in Go and Kafka that processes 4M transactions per day",
+        "Cut p99 API latency from 850 ms to 190 ms by adding Redis caching and rewriting hot PostgreSQL queries",
+        "Led migration of 14 services from EC2 to Kubernetes (EKS) with Terraform, reducing infra cost by 31%",
+        "Mentored 4 engineers and introduced design reviews for all new services"
+      ],
+      "technologies": ["Go", "Kafka", "PostgreSQL", "Redis", "Kubernetes", "AWS", "Terraform", "gRPC"]
+    },
+    {
+      "id": "exp-shopwise",
+      "company": "Shopwise",
+      "title": "Software Engineer",
+      "location": "Remote",
+      "startDate": "2019-01",
+      "endDate": "2022-02",
+      "current": false,
+      "description": "E-commerce analytics SaaS.",
+      "achievements": [
+        "Built REST APIs in Python (Django) serving 30M requests per day",
+        "Created a CI/CD pipeline with GitHub Actions and Docker, cutting release time from 2 days to 2 hours",
+        "Reduced nightly ETL runtime by 60% by moving batch jobs to Apache Airflow with incremental loads"
+      ],
+      "technologies": ["Python", "Django", "Docker", "GitHub Actions", "Airflow", "MySQL"]
+    },
+    {
+      "id": "exp-datacore",
+      "company": "DataCore Labs",
+      "title": "Junior Developer",
+      "location": "Dallas, TX",
+      "startDate": "2017-06",
+      "endDate": "2018-12",
+      "current": false,
+      "description": "",
+      "achievements": [
+        "Maintained internal reporting tools written in Java and Spring Boot",
+        "Wrote integration tests that raised coverage from 40% to 75%"
+      ],
+      "technologies": ["Java", "Spring Boot", "JUnit"]
+    }
+  ],
+  "education": [
+    {
+      "id": "edu-ut",
+      "institution": "University of Texas at Austin",
+      "degree": "Bachelor of Science",
+      "field": "Computer Science",
+      "location": "Austin, TX",
+      "startDate": "2013-08",
+      "endDate": "2017-05",
+      "grade": "GPA 3.7/4.0",
+      "courses": ["Distributed Systems", "Databases", "Algorithms"],
+      "achievements": []
+    }
+  ],
+  "skills": [
+    { "id": "sk-lang", "category": "Languages", "items": ["Go", "Python", "Java", "SQL", "TypeScript"] },
+    { "id": "sk-infra", "category": "Cloud & Infrastructure", "items": ["AWS", "Kubernetes", "Docker", "Terraform", "CI/CD"] },
+    { "id": "sk-data", "category": "Data", "items": ["PostgreSQL", "Redis", "Kafka", "Airflow", "MySQL"] }
+  ],
+  "certifications": [
+    { "id": "cert-aws-sa", "name": "AWS Certified Solutions Architect – Associate", "issuer": "Amazon Web Services", "date": "2023-04", "expiryDate": "2026-04", "credentialId": "AWS-123456", "url": "" },
+    { "id": "cert-cka", "name": "Certified Kubernetes Administrator (CKA)", "issuer": "The Linux Foundation", "date": "2022-11", "expiryDate": "", "credentialId": "", "url": "" }
+  ],
+  "projects": [
+    {
+      "id": "proj-ratelimit",
+      "name": "go-ratelimit",
+      "role": "Author",
+      "url": "https://github.com/alexmorgan-example/go-ratelimit",
+      "startDate": "2021-05",
+      "endDate": "",
+      "description": "Open-source distributed rate limiter for Go services.",
+      "highlights": ["Distributed token-bucket rate limiter backed by Redis, 1.2k GitHub stars"],
+      "technologies": ["Go", "Redis"]
+    }
+  ],
+  "awards": [],
+  "languages": [
+    { "id": "lang-en", "language": "English", "fluency": "Native" },
+    { "id": "lang-es", "language": "Spanish", "fluency": "Professional" }
+  ],
+  "volunteer": [],
+  "publications": [],
+  "notes": "Open to remote roles. Prefers backend/platform work. Has on-call experience (PagerDuty).",
+  "settings": { "pageSize": "Letter" }
+}

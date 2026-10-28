@@ -1,0 +1,22 @@
+Senior Backend Engineer — Payments Platform (Remote, US)
+Northwind Pay
+
+About the role
+Northwind Pay is hiring a Senior Backend Engineer to build the services that move money for thousands of businesses. You will design and operate high-throughput, fault-tolerant systems and help raise the engineering bar across the team.
+
+What you'll do
+- Design, build and operate microservices in Go that process millions of payment transactions per day
+- Own event-driven architecture built on Kafka, including schema evolution and exactly-once processing
+- Improve performance and reliability of PostgreSQL-backed APIs; define SLOs and lead incident response
+- Run workloads on AWS and Kubernetes; manage infrastructure as code with Terraform
+- Mentor engineers, lead design reviews and partner with product managers
+
+What we're looking for
+- 5+ years of backend software engineering experience
+- Strong experience with Go (or willingness to learn it coming from Java/Python)
+- Distributed systems, microservices, gRPC and REST API design
+- Experience with Kafka or similar event streaming platforms
+- PostgreSQL, Redis, query optimization
+- AWS, Kubernetes, Docker, Terraform, CI/CD
+- Experience in payments, fintech or other regulated environments is a plus
+- On-call experience and observability tooling (Prometheus, Grafana, Datadog)
